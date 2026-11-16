@@ -15,6 +15,15 @@ var handleRe = regexp.MustCompile(`^[a-z0-9_]{3,24}$`)
 
 func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
+	if strings.EqualFold(slug, "root") || strings.EqualFold(slug, "admin") {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"id":       "root",
+			"username": "root",
+			"handle":   "",
+			"path":     "/u/root",
+		})
+		return
+	}
 	u, err := s.store.GetUserByProfileSlug(slug)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "store error")
@@ -35,7 +44,7 @@ func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateMyProfile(w http.ResponseWriter, r *http.Request) {
 	sess := sessionFrom(r)
 	if sess.Role == auth.RoleAdmin && sess.Subject == "root" {
-		writeErr(w, http.StatusBadRequest, "admin has no student profile")
+		writeErr(w, http.StatusBadRequest, "platform admin profile has a fixed id")
 		return
 	}
 	var body struct {

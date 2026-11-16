@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { api, type DomainInfo, type UpdateStatus } from "@/lib/api";
+import { getDomain, getUpdateStatus } from "@/lib/platform";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 import { PageTabs } from "@/components/PageTabs";
@@ -26,7 +26,7 @@ export function AdminSettingsPage() {
 
   const refresh = useCallback(async () => {
     try {
-      const [st, dom] = await Promise.all([api.updateStatus(), api.getDomain()]);
+      const [st, dom] = await Promise.all([getUpdateStatus(), getDomain()]);
       setStatus(st);
       setDomainInfo(dom);
       setDomain(dom.domain || "");
@@ -85,10 +85,27 @@ export function AdminSettingsPage() {
   const publicIP = domainInfo?.public_ip || "…";
   const dnsBlock = `Type: A\nHost/Name: ${dnsHost}\nValue: ${publicIP}\nTTL: Auto`;
 
+  const copyText = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(t("copied"));
+    } catch {
+      toast.error(t("copy_failed"));
+    }
+  };
+
+  const shortDigest = (d?: string) => (d ? d.replace(/^sha256:/, "").slice(0, 12) : "—");
+
   return (
     <Shell role="admin">
-      <h1>{t("nav_settings")}</h1>
-      <p className="muted">{t("settings_body")}</p>
+      <div className="page-head">
+        <div>
+          <h1 style={{ margin: 0 }}>{t("nav_settings")}</h1>
+          <p className="muted" style={{ margin: "6px 0 0" }}>
+            {t("settings_body")}
+          </p>
+        </div>
+      </div>
 
       <PageTabs tabs={tabs} active={tab} onChange={setTab} />
 
@@ -118,23 +135,45 @@ export function AdminSettingsPage() {
               <CopyButton value={dnsBlock} />
             </div>
             <p className="small-text">{t("dns_body")}</p>
-            <div className="dns-rows">
-              {(
-                [
-                  ["Type", "A"],
-                  ["Host", dnsHost],
-                  ["Value", publicIP],
-                  ["TTL", "Auto"],
-                ] as const
-              ).map(([label, value]) => (
-                <div className="dns-row" key={label}>
-                  <span>{label}</span>
-                  <ChevronRight size={14} className="dns-chevron" aria-hidden />
-                  <code className="font-mono">{value}</code>
-                  <CopyButton value={value} />
-                </div>
-              ))}
-            </div>
+            <button
+              type="button"
+              className="dns-sheet"
+              onClick={() => void copyText(dnsBlock)}
+              title={t("copy")}
+            >
+              <div className="dns-sheet-line">
+                <span>Type</span>
+                <code>A</code>
+              </div>
+              <div className="dns-sheet-line">
+                <span>Host</span>
+                <code
+                  className="dns-click"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void copyText(dnsHost);
+                  }}
+                >
+                  {dnsHost}
+                </code>
+              </div>
+              <div className="dns-sheet-line">
+                <span>Value</span>
+                <code
+                  className="dns-click"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void copyText(publicIP);
+                  }}
+                >
+                  {publicIP}
+                </code>
+              </div>
+              <div className="dns-sheet-line">
+                <span>TTL</span>
+                <code>Auto</code>
+              </div>
+            </button>
           </div>
 
           <div className="domain-block">
@@ -166,30 +205,41 @@ export function AdminSettingsPage() {
             <p className="small-text">{t("update_checking")}</p>
           ) : (
             <>
-              <div className="grid">
-                <div>
+              <div className="version-grid">
+                <div className="version-card">
                   <div className="small-text">{t("current_version")}</div>
-                  <div className="font-mono" style={{ marginTop: 6, fontSize: "1.25rem" }}>
-                    {status.current}
+                  <div className="version-card-value font-mono">{status.current}</div>
+                  <div className="small-text" style={{ marginTop: 8 }}>
+                    {status.update_available ? t("update_available") : t("update_up_to_date")}
                   </div>
                 </div>
-                <div>
+                <div className="version-card">
                   <div className="small-text">{t("remote_tag")}</div>
-                  <div className="font-mono" style={{ marginTop: 6 }}>
+                  <div className="version-card-value font-mono" style={{ fontSize: "1rem" }}>
                     {status.image}
+                  </div>
+                  <div className="small-text font-mono" style={{ marginTop: 8 }}>
+                    {status.tag}
+                  </div>
+                </div>
+                <div className="version-card">
+                  <div className="small-text">{t("image_digest")}</div>
+                  <div className="version-card-value font-mono" style={{ fontSize: "1rem" }}>
+                    {shortDigest(status.local_digest || status.remote_digest)}
+                  </div>
+                  <div className="small-text" style={{ marginTop: 8 }}>
+                    {status.checked_at
+                      ? new Date(status.checked_at).toLocaleString()
+                      : "—"}
                   </div>
                 </div>
               </div>
 
-              {status.update_available ? (
-                <p className="small-text" style={{ marginTop: 16 }}>
-                  {t("update_available")}
+              {status.error ? (
+                <p className="small-text" style={{ marginTop: 16, color: "#fca5a5" }}>
+                  {status.error}
                 </p>
-              ) : (
-                <p className="small-text" style={{ marginTop: 16 }}>
-                  {status.error ? status.error : t("update_up_to_date")}
-                </p>
-              )}
+              ) : null}
 
               <div className="row" style={{ marginTop: 16 }}>
                 <button type="button" className="secondary btn-compact" disabled={busy} onClick={() => void refresh()}>

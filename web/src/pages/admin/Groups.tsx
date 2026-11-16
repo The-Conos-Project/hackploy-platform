@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Plus, Trash2, Users, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Group } from "@/lib/api";
+import { listGroups } from "@/lib/platform";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 
@@ -12,16 +13,23 @@ export function AdminGroupsPage() {
   const [name, setName] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
-    const g = await api.listGroups();
-    setGroups(g.groups ?? []);
+    setGroups(await listGroups());
   };
 
   useEffect(() => {
-    void load().catch((cause) =>
-      toast.error(cause instanceof Error ? cause.message : "load failed"),
-    );
+    let alive = true;
+    setLoading(true);
+    void load()
+      .catch((cause) => toast.error(cause instanceof Error ? cause.message : "load failed"))
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const onCreate = async (e: FormEvent) => {
@@ -59,7 +67,9 @@ export function AdminGroupsPage() {
         </button>
       </div>
 
-      {groups.length === 0 ? (
+      {loading ? (
+        <p className="muted">{t("loading")}</p>
+      ) : groups.length === 0 ? (
         <section className="empty-state card">
           <p className="muted" style={{ margin: 0 }}>
             {t("no_groups")}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ChevronDown, Hammer, Package, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Challenge } from "@/lib/api";
+import { listChallenges } from "@/lib/platform";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 
@@ -20,8 +21,7 @@ export function AdminChallengesPage() {
   const [query, setQuery] = useState("");
 
   const load = async () => {
-    const data = await api.listChallenges();
-    setChallenges(data.challenges ?? []);
+    setChallenges(await listChallenges());
   };
 
   useEffect(() => {

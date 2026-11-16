@@ -81,6 +81,38 @@ body {
   font: 15px/1.5 var(--font-sans);
 }
 
+/* Custom scrollbar — same behavior as native (auto show, scroll, drag) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--muted-foreground) 45%, transparent) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--muted-foreground) 65%, transparent);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -123,8 +155,9 @@ select {
 }
 
 .shell.is-collapsed .sidebar {
-  width: 76px;
-  padding: 14px 8px;
+  --rail: 44px;
+  width: calc(var(--rail) + 24px); /* rail + equal side padding */
+  padding: 12px;
   align-items: center;
 }
 
@@ -139,7 +172,14 @@ select {
 
 .shell.is-collapsed .sidebar-top {
   justify-content: center;
-  padding: 4px 0 8px;
+  align-items: center;
+  padding: 0 0 4px;
+  width: var(--rail);
+  gap: 0;
+}
+
+.shell.is-collapsed .sidebar-top-actions {
+  display: none;
 }
 
 .brand {
@@ -181,12 +221,20 @@ select {
 }
 
 .shell.is-collapsed .brand {
-  width: 40px;
-  height: 40px;
+  width: var(--rail);
+  height: var(--rail);
+  margin: 0;
+  gap: 0;
   justify-content: center;
+  align-items: center;
 }
 
 .shell.is-collapsed .brand-logo {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  object-fit: contain;
+  object-position: center;
   transition: opacity 0.15s ease;
 }
 
@@ -194,8 +242,8 @@ select {
   display: inline-flex;
   position: absolute;
   inset: 0;
-  width: 40px;
-  height: 40px;
+  width: var(--rail);
+  height: var(--rail);
   margin: 0;
   padding: 0;
   border-radius: var(--radius-pill);
@@ -288,15 +336,58 @@ select {
   height: 20px;
 }
 
-.shell.is-collapsed .nav-label {
+.shell.is-collapsed .nav {
+  width: var(--rail);
+  align-items: center;
+}
+
+.shell.is-collapsed .nav-label,
+.shell.is-collapsed .nav-chevron {
   display: none;
 }
 
 .shell.is-collapsed .nav-link {
   justify-content: center;
+  align-items: center;
   padding: 0;
-  width: 42px;
-  margin-inline: auto;
+  width: var(--rail);
+  height: var(--rail);
+  min-height: var(--rail);
+  margin-inline: 0;
+}
+
+.shell.is-collapsed .sidebar-identity {
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  width: var(--rail);
+  height: var(--rail);
+  margin: 0;
+}
+
+.shell.is-collapsed .desktop-lang,
+.shell.is-collapsed .lang-dropdown {
+  width: var(--rail);
+  display: flex;
+  justify-content: center;
+}
+
+.shell.is-collapsed .lang-trigger.is-compact {
+  width: var(--rail);
+  height: var(--rail);
+  min-width: var(--rail);
+  min-height: var(--rail);
+  max-width: var(--rail);
+  max-height: var(--rail);
+}
+
+.shell.is-collapsed .logout-btn {
+  width: var(--rail);
+  height: var(--rail);
+  min-height: var(--rail);
+  margin-inline: 0;
+  padding: 0;
+  justify-content: center;
 }
 
 .sidebar-foot {
@@ -368,12 +459,15 @@ select {
 
 .shell.is-collapsed .sidebar-user-row {
   justify-content: center;
+  align-items: center;
   flex-direction: column;
+  gap: 8px;
   padding: 0;
+  width: var(--rail);
 }
 
 .shell.is-collapsed .sidebar-foot {
-  width: 100%;
+  width: var(--rail);
   align-items: center;
 }
 
@@ -783,6 +877,27 @@ button.secondary:hover {
   box-shadow: 0 1px 0 color-mix(in oklab, #fff 4%, transparent);
 }
 
+.lang-trigger.is-compact {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+}
+
+.lang-flag {
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+}
+
+.lang-trigger.is-compact .lang-flag {
+  font-size: 15px;
+}
+
 .lang-trigger:hover {
   background: var(--muted);
   filter: none;
@@ -803,6 +918,8 @@ button.secondary:hover {
   z-index: 100;
   margin: 8px 0 0;
   min-width: 10.5rem;
+  width: max-content;
+  max-width: min(16rem, calc(100vw - 16px));
   list-style: none;
   padding: 6px;
   border-radius: 1rem;
@@ -815,6 +932,7 @@ button.secondary:hover {
 .lang-menu-portal {
   position: fixed;
   margin: 0;
+  right: auto;
   z-index: 2000;
 }
 
@@ -822,6 +940,7 @@ button.secondary:hover {
   width: 100%;
   display: flex;
   align-items: center;
+  gap: 10px;
   border-radius: var(--radius-pill);
   padding: 8px 12px;
   min-height: 36px;
@@ -978,16 +1097,40 @@ button.secondary:hover {
 }
 
 .page-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  position: relative;
   margin: 14px 0 16px;
+  max-width: 100%;
+  width: 100%;
+}
+
+.page-tabs::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 48px;
+  background: linear-gradient(to right, transparent, var(--background));
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+}
+
+.page-tabs-scroller {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
   padding: 4px;
   width: fit-content;
   max-width: 100%;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: color-mix(in oklab, var(--card) 70%, transparent);
+  -webkit-overflow-scrolling: touch;
+}
+
+.page-tabs-scroller .page-tab {
+  flex: 0 0 auto;
 }
 
 .page-tab {
@@ -1070,33 +1213,54 @@ button.secondary:hover {
   border-top: 1px solid var(--border);
 }
 
-.dns-rows {
+.dns-sheet {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  width: 100%;
   margin-top: 12px;
-}
-
-.dns-row {
-  display: grid;
-  grid-template-columns: 56px 16px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: left;
+  border-radius: 14px;
   border: 1px solid var(--border);
-  background: color-mix(in oklab, var(--card) 75%, #000 25%);
+  background: color-mix(in oklab, var(--card) 70%, #000 30%);
+  color: inherit;
+  min-height: 0;
+  font: inherit;
+  cursor: pointer;
 }
 
-.dns-chevron {
+.dns-sheet:hover {
+  background: color-mix(in oklab, var(--accent) 55%, var(--card));
+  filter: none;
+}
+
+.dns-sheet-line {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 14px;
+  font-size: 15px;
   color: var(--muted-foreground);
-  justify-self: center;
 }
 
-.dns-row code {
+.dns-sheet-line code {
+  color: var(--foreground);
+  font-size: 15px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  justify-self: start;
+  max-width: 100%;
+}
+
+.dns-click {
+  cursor: pointer;
+  border-bottom: 1px dashed color-mix(in oklab, var(--border) 80%, transparent);
+}
+
+.dns-click:hover {
+  color: color-mix(in oklab, #7dd3c0 70%, var(--foreground));
 }
 
 .nav-group {
@@ -1538,6 +1702,29 @@ button.secondary:hover {
   transform: rotate(180deg);
 }
 
+.version-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.version-card {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 50%, var(--card) 50%);
+  min-height: 110px;
+}
+
+.version-card-value {
+  margin-top: 8px;
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  word-break: break-all;
+}
+
 .stats-grid {
   margin-bottom: 8px;
 }
@@ -1624,20 +1811,26 @@ button.secondary:hover {
 
 .sparkline {
   width: 100%;
-  height: 56px;
-  margin-top: 8px;
+  height: 72px;
+  margin-top: 10px;
 }
 
-.sparkline path {
-  stroke: color-mix(in oklab, #7dd3c0 75%, var(--foreground));
+.sparkline .spark-line {
+  stroke: color-mix(in oklab, #7dd3c0 80%, var(--foreground));
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
+}
+
+.sparkline .spark-area {
+  fill: color-mix(in oklab, #7dd3c0 18%, transparent);
+  stroke: none;
 }
 
 .spark-foot {
   margin-top: auto;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  width: 100%;
 }
 
 @media (max-width: 800px) {
@@ -1700,13 +1893,14 @@ button.secondary:hover {
     flex-direction: column;
   }
 
-  .dns-row {
-    grid-template-columns: 48px 14px minmax(0, 1fr);
+  .dns-sheet-line {
+    grid-template-columns: 4rem minmax(0, 1fr);
+    column-gap: 10px;
+    font-size: 14px;
   }
 
-  .dns-row .copy-btn {
-    grid-column: 1 / -1;
-    justify-self: start;
+  .dns-sheet-line code {
+    font-size: 14px;
   }
 
   .main {
@@ -1750,7 +1944,8 @@ button.secondary:hover {
   }
 
   .gauge-row,
-  .spark-row {
+  .spark-row,
+  .version-grid {
     grid-template-columns: 1fr;
   }
 

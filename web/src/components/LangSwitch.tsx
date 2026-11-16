@@ -9,10 +9,23 @@ const LABELS: Record<Lang, string> = {
   en: "English",
 };
 
-export function LangSwitch({ className = "" }: { className?: string }) {
+const FLAGS: Record<Lang, string> = {
+  uz: "🇺🇿",
+  en: "🇬🇧",
+};
+
+type Pos = { top?: number; bottom?: number; left?: number; right?: number };
+
+export function LangSwitch({
+  className = "",
+  compact = false,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
   const { lang, setLang, t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const [pos, setPos] = useState<Pos | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
   const listId = useId();
@@ -21,8 +34,25 @@ export function LangSwitch({ className = "" }: { className?: string }) {
     const el = rootRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
+    const menuH = 120;
+    const spaceBelow = window.innerHeight - r.bottom;
+    const openUp = spaceBelow < menuH + 12;
+
+    const menuW = 176;
+    if (compact) {
+      // Compact: park a fixed-width menu to the right of the rail
+      const left = Math.min(r.right + 8, window.innerWidth - menuW - 8);
+      setPos({
+        ...(openUp ? { bottom: window.innerHeight - r.bottom + 6 } : { top: r.top }),
+        left: Math.max(8, left),
+      });
+      return;
+    }
+
     setPos({
-      top: r.bottom + 8,
+      ...(openUp
+        ? { bottom: window.innerHeight - r.top + 8 }
+        : { top: r.bottom + 8 }),
       right: Math.max(8, window.innerWidth - r.right),
     });
   };
@@ -30,13 +60,13 @@ export function LangSwitch({ className = "" }: { className?: string }) {
   useLayoutEffect(() => {
     if (!open) return;
     place();
-  }, [open]);
+  }, [open, compact]);
 
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: PointerEvent) => {
-      const t = event.target as Node;
-      if (rootRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      const node = event.target as Node;
+      if (rootRef.current?.contains(node) || menuRef.current?.contains(node)) return;
       setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -53,21 +83,30 @@ export function LangSwitch({ className = "" }: { className?: string }) {
       window.removeEventListener("resize", onScroll);
       window.removeEventListener("scroll", onScroll, true);
     };
-  }, [open]);
+  }, [open, compact]);
 
   return (
-    <div ref={rootRef} className={`lang-dropdown ${className}`.trim()}>
+    <div
+      ref={rootRef}
+      className={`lang-dropdown${compact ? " is-compact" : ""} ${className}`.trim()}
+    >
       <button
         type="button"
-        className="lang-trigger"
+        className={`lang-trigger${compact ? " is-compact" : ""}`}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
         aria-label={t("language")}
+        title={LABELS[lang]}
         onClick={() => setOpen((v) => !v)}
       >
-        <span>{lang.toUpperCase()}</span>
-        <ChevronDown size={14} aria-hidden className={open ? "chev open" : "chev"} />
+        <span className="lang-flag" aria-hidden>
+          {FLAGS[lang]}
+        </span>
+        {!compact ? <span className="lang-code">{lang.toUpperCase()}</span> : null}
+        {!compact ? (
+          <ChevronDown size={14} aria-hidden className={open ? "chev open" : "chev"} />
+        ) : null}
       </button>
       {open && pos
         ? createPortal(
@@ -77,7 +116,13 @@ export function LangSwitch({ className = "" }: { className?: string }) {
               role="listbox"
               aria-label={t("language")}
               className="lang-menu lang-menu-portal"
-              style={{ top: pos.top, right: pos.right }}
+              style={{
+                top: pos.top,
+                bottom: pos.bottom,
+                left: pos.left,
+                right: pos.right ?? "auto",
+                width: compact ? 176 : undefined,
+              }}
             >
               {(["uz", "en"] as const).map((code) => (
                 <li key={code} role="option" aria-selected={lang === code}>
@@ -89,7 +134,10 @@ export function LangSwitch({ className = "" }: { className?: string }) {
                       setOpen(false);
                     }}
                   >
-                    {LABELS[code]}
+                    <span className="lang-flag" aria-hidden>
+                      {FLAGS[code]}
+                    </span>
+                    <span>{LABELS[code]}</span>
                   </button>
                 </li>
               ))}

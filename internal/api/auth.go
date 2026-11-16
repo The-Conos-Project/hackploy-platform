@@ -155,6 +155,7 @@ func (h *authHandlers) adminLogin(w http.ResponseWriter, r *http.Request) {
 		"id":       "root",
 		"username": "root",
 		"role":     auth.RoleAdmin,
+		"path":     "/u/root",
 	})
 }
 
@@ -175,11 +176,11 @@ func (h *authHandlers) me(w http.ResponseWriter, r *http.Request) {
 		"role":     sess.Role,
 		"expires":  sess.ExpiresAt,
 	}
-	if sess.Role != auth.RoleAdmin {
-		if u, err := h.store.GetUserByID(sess.Subject); err == nil && u != nil {
-			out["handle"] = u.Handle
-			out["path"] = u.ProfilePath()
-		}
+	if sess.Role == auth.RoleAdmin {
+		out["path"] = "/u/root"
+	} else if u, err := h.store.GetUserByID(sess.Subject); err == nil && u != nil {
+		out["handle"] = u.Handle
+		out["path"] = u.ProfilePath()
 	}
 	writeJSON(w, http.StatusOK, out)
 }

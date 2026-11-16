@@ -150,7 +150,8 @@ export const messages = {
     memory: "RAM",
     disk: "Disk",
     cores: "yadro",
-    last_samples: "oxirgi o'lchovlar",
+    last_samples: "oxirgi 60 soniya",
+    image_digest: "Image digest",
   },
   en: {
     badge: "Self-hosted CTF platform",
@@ -298,7 +299,8 @@ export const messages = {
     memory: "RAM",
     disk: "Disk",
     cores: "cores",
-    last_samples: "recent samples",
+    last_samples: "last 60 seconds",
+    image_digest: "Image digest",
   },
 } as const;
 

@@ -16,7 +16,7 @@ export function ProfilePage() {
   const [busy, setBusy] = useState(false);
   const [missing, setMissing] = useState(false);
 
-  const isMine = !!user && user.role === "student" && user.id === profile?.id;
+  const isMine = !!user && !!profile && user.id === profile.id;
 
   useEffect(() => {
     void api
@@ -70,7 +70,12 @@ export function ProfilePage() {
           </div>
           <CopyButton value={profile.path} />
         </div>
-        {isMine ? (
+        {isMine && user?.role === "admin" ? (
+          <p className="small-text" style={{ marginTop: 16 }}>
+            {t("role_admin")}
+          </p>
+        ) : null}
+        {isMine && user?.role !== "admin" ? (
           <form onSubmit={(e) => void onSave(e)} style={{ marginTop: 16 }}>
             <label className="small-text">{t("handle")}</label>
             <input

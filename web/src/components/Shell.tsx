@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { api, type Group, type UpdateStatus } from "@/lib/api";
+import { getUpdateStatus, listGroups } from "@/lib/platform";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/i18n";
 import { toast } from "sonner";
@@ -57,16 +58,15 @@ export function Shell({
   }, []);
 
   useEffect(() => {
-    void api
-      .listGroups()
-      .then((data) => setGroups(data.groups ?? []))
+    void listGroups()
+      .then((data) => setGroups(data))
       .catch(() => setGroups([]));
   }, []);
 
   const checkUpdates = useCallback(async () => {
     if (role !== "admin") return;
     try {
-      const st = await api.updateStatus();
+      const st = await getUpdateStatus();
       setUpdate(st);
       if (st.current) setVersion(st.current);
     } catch {
@@ -107,23 +107,21 @@ export function Shell({
 
   const closeMobile = () => setMobileOpen(false);
 
+  const profileTo = user?.path || `/u/${user?.id || ""}`;
+
   const adminNav: NavItem[] = [
     { key: "home", to: "/admin", label: t("nav_overview"), icon: <LayoutDashboard /> },
     { key: "labs", to: "/admin/labs", label: t("nav_challenges"), icon: <Workflow /> },
     { key: "leaderboard", to: "/admin/leaderboard", label: t("nav_leaderboard"), icon: <Trophy /> },
     { key: "users", to: "/admin/users", label: t("nav_users"), icon: <Users /> },
+    { key: "profile", to: profileTo, label: t("nav_profile"), icon: <UserRound /> },
     { key: "settings", to: "/admin/settings", label: t("nav_settings"), icon: <Settings /> },
   ];
 
   const studentNav: NavItem[] = [
     { key: "home", to: "/dashboard", label: t("nav_dashboard"), icon: <LayoutDashboard /> },
     { key: "leaderboard", to: "/leaderboard", label: t("nav_leaderboard"), icon: <Trophy /> },
-    {
-      key: "profile",
-      to: user?.path || `/u/${user?.id || ""}`,
-      label: t("nav_profile"),
-      icon: <UserRound />,
-    },
+    { key: "profile", to: profileTo, label: t("nav_profile"), icon: <UserRound /> },
     { key: "password", to: "/change-password", label: t("nav_password"), icon: <KeyRound /> },
   ];
 
@@ -133,7 +131,6 @@ export function Shell({
     ? update.remote_digest.slice(0, 12)
     : update?.tag || "—";
   const groupsRoot = role === "admin" ? "/admin/groups" : "/groups";
-  const profileTo = role === "student" ? user?.path || `/u/${user?.id || ""}` : undefined;
 
   return (
     <div className={`shell${collapsed ? " is-collapsed" : ""}${mobileOpen ? " is-mobile-open" : ""}`}>
@@ -142,7 +139,7 @@ export function Shell({
           <Menu size={18} />
         </button>
         <strong className="mobile-brand">Hackploy</strong>
-        <LangSwitch />
+        <LangSwitch compact />
       </div>
 
       {mobileOpen ? <button type="button" className="sidebar-backdrop" aria-label="Close" onClick={closeMobile} /> : null}
@@ -154,8 +151,8 @@ export function Shell({
               className="brand-logo"
               src="/logos/logo-transparent-dark.png"
               alt=""
-              width={32}
-              height={32}
+              width={28}
+              height={28}
             />
             <button
               type="button"
@@ -201,21 +198,37 @@ export function Shell({
             </NavLink>
           ))}
 
-          <div className={`nav-group${groupsOpen ? " is-open" : ""}`}>
-            <button
-              type="button"
-              className="nav-link nav-group-toggle"
-              onClick={() => setGroupsOpen((v) => !v)}
-              title={role === "admin" ? t("nav_classes") : t("nav_my_classes")}
-            >
-              <span className="nav-icon">
-                <Users />
-              </span>
-              <span className="nav-label">
-                {role === "admin" ? t("nav_classes") : t("nav_my_classes")}
-              </span>
-              <ChevronDown size={16} className="nav-chevron" />
-            </button>
+          <div className={`nav-group${groupsOpen && !collapsed ? " is-open" : ""}`}>
+            {collapsed ? (
+              <NavLink
+                to={groupsRoot}
+                className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+                title={role === "admin" ? t("nav_classes") : t("nav_my_classes")}
+                onClick={closeMobile}
+              >
+                <span className="nav-icon">
+                  <Users />
+                </span>
+                <span className="nav-label">
+                  {role === "admin" ? t("nav_classes") : t("nav_my_classes")}
+                </span>
+              </NavLink>
+            ) : (
+              <button
+                type="button"
+                className="nav-link nav-group-toggle"
+                onClick={() => setGroupsOpen((v) => !v)}
+                title={role === "admin" ? t("nav_classes") : t("nav_my_classes")}
+              >
+                <span className="nav-icon">
+                  <Users />
+                </span>
+                <span className="nav-label">
+                  {role === "admin" ? t("nav_classes") : t("nav_my_classes")}
+                </span>
+                <ChevronDown size={16} className="nav-chevron" />
+              </button>
+            )}
             {groupsOpen && !collapsed ? (
               <div className="nav-sub">
                 <NavLink
@@ -256,23 +269,19 @@ export function Shell({
 
         <div className="sidebar-foot">
           <div className="sidebar-user-row">
-            {profileTo ? (
-              <NavLink to={profileTo} className="sidebar-identity" onClick={closeMobile} title={t("nav_profile")}>
-                <UserRound size={16} className="sidebar-identity-icon" />
-                <span className="nav-label font-mono sidebar-name">{user?.username}</span>
-                <span className="sidebar-id-sep" aria-hidden />
-                <span className="sidebar-role">{roleLabel}</span>
-              </NavLink>
-            ) : (
-              <div className="sidebar-identity">
-                <UserRound size={16} className="sidebar-identity-icon" />
-                <span className="nav-label font-mono sidebar-name">{user?.username}</span>
-                <span className="sidebar-id-sep" aria-hidden />
-                <span className="sidebar-role">{roleLabel}</span>
-              </div>
-            )}
+            <NavLink
+              to={profileTo}
+              className="sidebar-identity"
+              onClick={closeMobile}
+              title={t("nav_profile")}
+            >
+              <UserRound size={16} className="sidebar-identity-icon" />
+              <span className="nav-label font-mono sidebar-name">{user?.username}</span>
+              <span className="sidebar-id-sep" aria-hidden />
+              <span className="sidebar-role">{roleLabel}</span>
+            </NavLink>
             <span className="desktop-lang">
-              <LangSwitch />
+              <LangSwitch compact={collapsed} />
             </span>
           </div>
 

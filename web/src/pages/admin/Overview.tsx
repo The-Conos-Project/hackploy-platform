@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { api, type AdminMetrics } from "@/lib/api";
+import type { AdminMetrics } from "@/lib/api";
+import { getAdminMetrics } from "@/lib/platform";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 
-const HISTORY = 28;
+/** ~60s window at 2s poll */
+const POLL_MS = 2000;
+const HISTORY = 30;
 
 function formatBytes(n: number): string {
   if (!n) return "0 B";
@@ -53,26 +56,57 @@ function Gauge({
 }
 
 function Sparkline({ values, label }: { values: number[]; label: string }) {
-  const w = 220;
-  const h = 56;
-  const pts = values.length ? values : [0];
-  const max = Math.max(100, ...pts);
-  const step = pts.length > 1 ? w / (pts.length - 1) : w;
-  const d = pts
-    .map((v, i) => {
-      const x = i * step;
-      const y = h - (Math.max(0, Math.min(max, v)) / max) * (h - 4) - 2;
-      return `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(" ");
+  const w = 320;
+  const h = 72;
+  const pad = 2;
+  // Keep a fixed 60s slot count so the chart width maps to time even before filled
+  const slots = HISTORY;
+  const pts = Array.from({ length: slots }, (_, i) => {
+    const src = values[values.length - slots + i];
+    return src === undefined ? null : src;
+  });
+  const known = pts.filter((v): v is number => v !== null);
+  const max = Math.max(100, ...known, 1);
+  const step = slots > 1 ? w / (slots - 1) : w;
+  const line: string[] = [];
+  const area: string[] = [];
+  let started = false;
+  pts.forEach((v, i) => {
+    if (v === null) return;
+    const x = i * step;
+    const y = h - pad - (Math.max(0, Math.min(max, v)) / max) * (h - pad * 2);
+    if (!started) {
+      line.push(`M${x.toFixed(1)} ${y.toFixed(1)}`);
+      area.push(`M${x.toFixed(1)} ${(h - pad).toFixed(1)} L${x.toFixed(1)} ${y.toFixed(1)}`);
+      started = true;
+    } else {
+      line.push(`L${x.toFixed(1)} ${y.toFixed(1)}`);
+      area.push(`L${x.toFixed(1)} ${y.toFixed(1)}`);
+    }
+  });
+  if (started) {
+    let lastIdx = 0;
+    for (let i = 0; i < pts.length; i++) {
+      if (pts[i] !== null) lastIdx = i;
+    }
+    area.push(`L${(lastIdx * step).toFixed(1)} ${(h - pad).toFixed(1)} Z`);
+  }
+  const latest = known.length ? known[known.length - 1] : 0;
   return (
     <div className="spark-card">
-      <div className="small-text">{label}</div>
+      <div className="row" style={{ width: "100%" }}>
+        <div className="small-text">{label}</div>
+        <strong className="font-mono" style={{ fontSize: "1.05rem" }}>
+          {latest.toFixed(0)}%
+        </strong>
+      </div>
       <svg className="sparkline" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden>
-        <path d={d} fill="none" />
+        <path className="spark-area" d={area.join(" ") || "M0 0"} />
+        <path className="spark-line" d={line.join(" ") || "M0 0"} fill="none" />
       </svg>
       <div className="spark-foot">
-        <span className="small-text">{pts[pts.length - 1]?.toFixed(0) ?? 0}%</span>
+        <span className="small-text">−60s</span>
+        <span className="small-text">now</span>
       </div>
     </div>
   );
@@ -88,17 +122,36 @@ export function AdminOverviewPage() {
     let alive = true;
     const tick = async () => {
       try {
-        const data = await api.adminMetrics();
+        const data = await getAdminMetrics();
         if (!alive) return;
         setM(data);
         setCpuHist((h) => [...h, data.cpu_percent].slice(-HISTORY));
         setMemHist((h) => [...h, data.mem_percent].slice(-HISTORY));
       } catch {
-        /* ignore poll errors */
+        if (!alive) return;
+        // Keep UI usable if metrics endpoint is down
+        setM((prev) =>
+          prev ?? {
+            cpu_percent: 0,
+            mem_used_bytes: 0,
+            mem_total_bytes: 0,
+            mem_percent: 0,
+            disk_used_bytes: 0,
+            disk_total_bytes: 0,
+            disk_percent: 0,
+            load_1: 0,
+            num_cpu: 0,
+            active_labs: 0,
+            challenges: 0,
+            ready_challenges: 0,
+            groups: 0,
+            users: 0,
+          },
+        );
       }
     };
     void tick();
-    const id = window.setInterval(() => void tick(), 2500);
+    const id = window.setInterval(() => void tick(), POLL_MS);
     return () => {
       alive = false;
       window.clearInterval(id);
@@ -107,8 +160,14 @@ export function AdminOverviewPage() {
 
   return (
     <Shell role="admin">
-      <h1>{t("platform_overview")}</h1>
-      <p className="muted">{t("platform_overview_body")}</p>
+      <div className="page-head">
+        <div>
+          <h1 style={{ margin: 0 }}>{t("platform_overview")}</h1>
+          <p className="muted" style={{ margin: "6px 0 0" }}>
+            {t("platform_overview_body")}
+          </p>
+        </div>
+      </div>
 
       <div className="grid stats-grid">
         <div className="card stat-card">
