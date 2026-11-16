@@ -6,16 +6,32 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/The-Conos-Project/hackploy-platform/internal/auth"
 	"github.com/The-Conos-Project/hackploy-platform/internal/config"
 	"github.com/The-Conos-Project/hackploy-platform/internal/health"
+	"github.com/The-Conos-Project/hackploy-platform/internal/store"
 	"github.com/The-Conos-Project/hackploy-platform/internal/version"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 )
 
-func NewRouter(cfg config.Config) http.Handler {
+type Server struct {
+	cfg      config.Config
+	store    *store.Store
+	sessions *auth.Manager
+}
+
+func NewRouter(cfg config.Config, st *store.Store) http.Handler {
+	s := &Server{
+		cfg:      cfg,
+		store:    st,
+		sessions: auth.NewManager(cfg.SecretKey, 7*24*time.Hour, false),
+	}
+	ah := &authHandlers{store: st, sessions: s.sessions, adminPW: cfg.AdminPassword}
+
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
@@ -41,19 +57,70 @@ func NewRouter(cfg config.Config) http.Handler {
 		api.Get("/version", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]any{
 				"version":              version.Version,
-				"challenge_format":     "ctfploy.json/v1",
+				"challenge_format":     "hackploy.json/v1",
 				"instance_timeout_sec": cfg.InstanceTimeout,
 				"max_concurrent":       cfg.MaxConcurrent,
 			})
 		})
 
-		// Phase placeholders — implemented one by one
 		api.Get("/status", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]any{
-				"phase":   "0-base",
-				"message": "Hackploy 2.0 base is running. Auth/store/docker come next.",
+				"phase":   "8-cutover",
+				"message": "Installer proxies :8080; profiles, cleanup, mobile shell.",
 				"version": version.Version,
 			})
+		})
+
+		api.Route("/auth", func(ar chi.Router) {
+			ar.Post("/register", ah.register)
+			ar.Post("/login", ah.login)
+			ar.Post("/admin/login", ah.adminLogin)
+			ar.Post("/logout", ah.logout)
+			ar.Get("/me", ah.me)
+			ar.With(s.requireSession).Post("/password", ah.changePassword)
+		})
+
+		api.Get("/u/{slug}", s.getProfile)
+		api.With(s.requireSession).Patch("/me/profile", s.updateMyProfile)
+
+		api.Route("/challenges", func(cr chi.Router) {
+			cr.With(s.requireSession).Get("/", s.listChallenges)
+			cr.With(s.requireAdmin).Post("/import-url", s.importChallengeURL)
+			cr.With(s.requireAdmin).Post("/import", s.importChallengeUpload)
+			cr.With(s.requireAdmin).Post("/{id}/build", s.buildChallenge)
+			cr.With(s.requireAdmin).Get("/{id}/build-log", s.buildLog)
+			cr.With(s.requireSession).Get("/{id}", s.getChallenge)
+			cr.With(s.requireAdmin).Delete("/{id}", s.deleteChallenge)
+		})
+
+		api.Route("/updates", func(ur chi.Router) {
+			ur.With(s.requireAdmin).Get("/status", s.updateStatus)
+			ur.With(s.requireAdmin).Post("/apply", s.updateApply)
+		})
+
+		api.Route("/labs", func(lr chi.Router) {
+			lr.With(s.requireSession).Get("/", s.listLabs)
+			lr.With(s.requireSession).Post("/start", s.startLab)
+			lr.With(s.requireSession).Post("/{id}/stop", s.stopLab)
+			lr.With(s.requireSession).Post("/{id}/extend", s.extendLab)
+			lr.With(s.requireSession).Post("/{id}/flag", s.submitFlag)
+		})
+
+		api.Route("/groups", func(gr chi.Router) {
+			gr.With(s.requireSession).Get("/", s.listGroups)
+			gr.With(s.requireAdmin).Post("/", s.createGroup)
+			gr.With(s.requireSession).Post("/join", s.joinGroup)
+			gr.With(s.requireSession).Get("/{id}", s.getGroup)
+			gr.With(s.requireAdmin).Delete("/{id}", s.deleteGroup)
+			gr.With(s.requireAdmin).Put("/{id}/labs", s.assignLabs)
+		})
+
+		api.With(s.requireSession).Get("/leaderboard", s.leaderboard)
+
+		api.Route("/domain", func(dr chi.Router) {
+			dr.With(s.requireAdmin).Get("/", s.getDomain)
+			dr.With(s.requireAdmin).Post("/", s.saveDomain)
+			dr.With(s.requireAdmin).Post("/certificate", s.issueDomainCert)
 		})
 	})
 
@@ -72,7 +139,7 @@ func serveSPA(r chi.Router, staticDir string) {
 	if _, err := os.Stat(index); err != nil {
 		r.Get("/", func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			_, _ = w.Write([]byte("Hackploy 2.0 API is up. Build the web UI: cd web && pnpm build\n"))
+			_, _ = w.Write([]byte("Hackploy API is up. Build the web UI: cd web && pnpm build\n"))
 		})
 		return
 	}
@@ -81,7 +148,6 @@ func serveSPA(r chi.Router, staticDir string) {
 	spa := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		rel := strings.TrimPrefix(filepath.Clean(req.URL.Path), "/")
 		path := filepath.Join(staticDir, rel)
-		// Prevent path escape
 		if !strings.HasPrefix(path, filepath.Clean(staticDir)+string(os.PathSeparator)) &&
 			path != filepath.Clean(staticDir) {
 			http.NotFound(w, req)

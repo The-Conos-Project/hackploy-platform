@@ -1,0 +1,136 @@
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+	"regexp"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/The-Conos-Project/hackploy-platform/internal/auth"
+	"github.com/go-chi/chi/v5"
+)
+
+var handleRe = regexp.MustCompile(`^[a-z0-9_]{3,24}$`)
+
+func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	u, err := s.store.GetUserByProfileSlug(slug)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "store error")
+		return
+	}
+	if u == nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":       u.ID,
+		"username": u.Username,
+		"handle":   u.Handle,
+		"path":     u.ProfilePath(),
+	})
+}
+
+func (s *Server) updateMyProfile(w http.ResponseWriter, r *http.Request) {
+	sess := sessionFrom(r)
+	if sess.Role == auth.RoleAdmin && sess.Subject == "root" {
+		writeErr(w, http.StatusBadRequest, "admin has no student profile")
+		return
+	}
+	var body struct {
+		Handle string `json:"handle"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	handle := strings.ToLower(strings.TrimSpace(body.Handle))
+	if handle != "" {
+		if !handleRe.MatchString(handle) {
+			writeErr(w, http.StatusBadRequest, "handle must be 3-24 chars: a-z, 0-9, underscore")
+			return
+		}
+		if handle == "root" || handle == "admin" {
+			writeErr(w, http.StatusBadRequest, "handle reserved")
+			return
+		}
+		existing, err := s.store.GetUserByHandle(handle)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "store error")
+			return
+		}
+		if existing != nil && existing.ID != sess.Subject {
+			writeErr(w, http.StatusConflict, "handle taken")
+			return
+		}
+		// also block colliding with another user's public id
+		byID, err := s.store.GetUserByID(handle)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "store error")
+			return
+		}
+		if byID != nil && byID.ID != sess.Subject {
+			writeErr(w, http.StatusConflict, "handle taken")
+			return
+		}
+	}
+	if err := s.store.UpdateUserHandle(sess.Subject, handle); err != nil {
+		writeErr(w, http.StatusConflict, "handle taken")
+		return
+	}
+	u, err := s.store.GetUserByID(sess.Subject)
+	if err != nil || u == nil {
+		writeErr(w, http.StatusInternalServerError, "store error")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":       u.ID,
+		"username": u.Username,
+		"handle":   u.Handle,
+		"path":     u.ProfilePath(),
+	})
+}
+
+func (h *authHandlers) changePassword(w http.ResponseWriter, r *http.Request) {
+	sess, err := h.sessions.FromRequest(r)
+	if err != nil {
+		writeErr(w, http.StatusUnauthorized, "not signed in")
+		return
+	}
+	if sess.Role == auth.RoleAdmin {
+		writeErr(w, http.StatusBadRequest, "use hackploy-reset-admin-password on the host")
+		return
+	}
+	var body struct {
+		Current string `json:"current"`
+		Next    string `json:"next"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if utf8.RuneCountInString(body.Next) < 6 || utf8.RuneCountInString(body.Next) > 128 {
+		writeErr(w, http.StatusBadRequest, "password must be 6-128 characters")
+		return
+	}
+	u, err := h.store.GetUserByID(sess.Subject)
+	if err != nil || u == nil {
+		writeErr(w, http.StatusNotFound, "user not found")
+		return
+	}
+	if !auth.CheckPassword(u.PasswordHash, body.Current) {
+		writeErr(w, http.StatusUnauthorized, "current password incorrect")
+		return
+	}
+	hash, err := auth.HashPassword(body.Next)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "hash error")
+		return
+	}
+	if err := h.store.UpdateUserPassword(u.ID, hash); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not update password")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "true"})
+}

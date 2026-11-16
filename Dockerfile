@@ -13,12 +13,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /web/dist ./web/dist
-ARG VERSION=2.0.0-dev
+ARG VERSION=2.0.0
 RUN CGO_ENABLED=0 go build -ldflags "-X github.com/The-Conos-Project/hackploy-platform/internal/version.Version=${VERSION}" -o /hackploy ./cmd/hackploy
 
-# Runtime
+# Runtime — needs docker CLI for lab containers via mounted socket
 FROM alpine:3.21
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates docker-cli
 WORKDIR /app
 COPY --from=go /hackploy /usr/local/bin/hackploy
 COPY --from=go /src/web/dist /app/web/dist

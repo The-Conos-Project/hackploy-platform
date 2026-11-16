@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/The-Conos-Project/hackploy-platform/internal/dockerx"
 	"github.com/The-Conos-Project/hackploy-platform/internal/version"
 )
 
@@ -19,8 +20,11 @@ func Check(dataDir string) Status {
 	st := Status{
 		Status:  "ok",
 		Version: version.Version,
-		Docker:  "unchecked", // wired in phase 4
+		Docker:  "missing",
 		DB:      "ok",
+	}
+	if dockerx.Available() {
+		st.Docker = "ok"
 	}
 
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
@@ -35,6 +39,11 @@ func Check(dataDir string) Status {
 		return st
 	}
 	_ = os.Remove(probe)
+	dbFile := filepath.Join(dataDir, "hackploy.db")
+	if _, err := os.Stat(dbFile); err != nil {
+		st.DB = "missing"
+		st.Status = "degraded"
+	}
 	return st
 }
 

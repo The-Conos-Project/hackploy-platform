@@ -1,0 +1,12 @@
+data/
+bin/
+.git/
+.github/
+.cursor/
+**/*_test.go
+web/node_modules/
+web/dist/
+*.md
+!README.md
+.env
+**/.DS_Store

@@ -6,13 +6,16 @@ import (
 )
 
 type Config struct {
-	Addr           string
-	DataDir        string
-	AdminPassword  string
-	SecretKey      string
-	StaticDir      string
+	Addr            string
+	DataDir         string
+	AdminPassword   string
+	SecretKey       string
+	StaticDir       string
 	InstanceTimeout int
-	MaxConcurrent  int
+	MaxConcurrent   int
+	PlatformImage   string
+	ComposeDir      string
+	UpdateHelperImg string
 }
 
 func Load() Config {
@@ -24,6 +27,9 @@ func Load() Config {
 		StaticDir:       env("HACKPLOY_STATIC_DIR", "./web/dist"),
 		InstanceTimeout: envInt("INSTANCE_TIMEOUT", 7200),
 		MaxConcurrent:   envInt("MAX_CONCURRENT_PER_USER", 2),
+		PlatformImage:   env("PLATFORM_IMAGE", "zohidjonmarufov/hackploy-platform:main"),
+		ComposeDir:      env("HACKPLOY_COMPOSE_DIR", "/etc/hackploy"),
+		UpdateHelperImg: env("HACKPLOY_UPDATE_IMAGE", "docker:27-cli"),
 	}
 }
 
