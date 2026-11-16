@@ -34,12 +34,21 @@ echo 'Hackploy update: waiting…'
 sleep 2
 cd '%s'
 test -f docker-compose.yml
+NGINX_CONF='%s/nginx/default.conf'
+if [ -f "$NGINX_CONF" ] && grep -q 'proxy_pass http://platform:8000' "$NGINX_CONF"; then
+  echo 'Hackploy update: nginx :8000 → :8080'
+  sed -i 's|proxy_pass http://platform:8000|proxy_pass http://platform:8080|g' "$NGINX_CONF"
+fi
 echo 'Hackploy update: pulling…'
 docker compose pull
 echo 'Hackploy update: recreating…'
 docker compose up -d --force-recreate
+NGINX_ID=$(docker compose ps -q nginx 2>/dev/null || true)
+if [ -n "$NGINX_ID" ]; then
+  docker exec "$NGINX_ID" nginx -s reload >/dev/null 2>&1 || true
+fi
 echo 'Hackploy update: done.'
-`, composeDir)
+`, composeDir, composeDir)
 
 	cmd := exec.CommandContext(ctx, "docker", "run", "-d", "--rm",
 		"--name", "hackploy-updater",

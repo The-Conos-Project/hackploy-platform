@@ -80,6 +80,31 @@ func writeConfig(cfg Config, domain string, secured bool) error {
 	return os.WriteFile(cfg.NginxConfig, []byte(nginxConfig(domain, secured)), 0o644)
 }
 
+// MigrateLegacyProxy rewrites leftover 1.x nginx upstreams (platform:8000 → :8080)
+// and reloads nginx when the config file is mounted from the host.
+func MigrateLegacyProxy(cfg Config) {
+	path := cfg.NginxConfig
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	text := string(raw)
+	if !strings.Contains(text, "platform:8000") {
+		return
+	}
+	next := strings.ReplaceAll(text, "http://platform:8000", "http://platform:8080")
+	if next == text {
+		return
+	}
+	if err := os.WriteFile(path, []byte(next), 0o644); err != nil {
+		return
+	}
+	if err := reloadNginx(); err != nil {
+		// best-effort — host may still need: docker exec … nginx -s reload
+		return
+	}
+}
+
 func reloadNginx() error {
 	out, err := exec.Command("docker", "ps", "--filter", "label=com.docker.compose.service=nginx", "--format", "{{.ID}}").Output()
 	if err != nil {

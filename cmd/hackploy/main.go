@@ -9,6 +9,7 @@ import (
 	"github.com/The-Conos-Project/hackploy-platform/internal/api"
 	"github.com/The-Conos-Project/hackploy-platform/internal/cleanup"
 	"github.com/The-Conos-Project/hackploy-platform/internal/config"
+	"github.com/The-Conos-Project/hackploy-platform/internal/domain"
 	"github.com/The-Conos-Project/hackploy-platform/internal/store"
 	"github.com/The-Conos-Project/hackploy-platform/internal/version"
 )
@@ -24,6 +25,9 @@ func main() {
 		log.Fatalf("store: %v", err)
 	}
 	defer st.Close()
+
+	// Heal upgrades from 1.x where nginx still proxies :8000
+	domain.MigrateLegacyProxy(domain.DefaultConfig())
 
 	cleanup.StartExpiredLabs(st, time.Minute)
 
