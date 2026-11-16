@@ -73,6 +73,23 @@ export type DomainInfo = {
   public_ip: string;
 };
 
+export type AdminMetrics = {
+  cpu_percent: number;
+  mem_used_bytes: number;
+  mem_total_bytes: number;
+  mem_percent: number;
+  disk_used_bytes: number;
+  disk_total_bytes: number;
+  disk_percent: number;
+  load_1: number;
+  num_cpu: number;
+  active_labs: number;
+  challenges: number;
+  ready_challenges: number;
+  groups: number;
+  users: number;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     credentials: "include",
@@ -96,6 +113,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<Health>("/health"),
   status: () => request<PlatformStatus>("/api/v1/status"),
+  adminMetrics: () => request<AdminMetrics>("/api/v1/metrics"),
   version: () =>
     request<{ version: string; challenge_format: string }>("/api/v1/version"),
   me: () => request<SessionUser>("/api/v1/auth/me"),
@@ -180,6 +198,10 @@ export const api = {
         ...(flagIndex !== undefined ? { flag_index: flagIndex } : {}),
       }),
     }),
+  listUsers: () =>
+    request<{ users: { id: string; username: string; handle?: string; path: string }[] }>(
+      "/api/v1/users/",
+    ),
   listGroups: () => request<{ groups: Group[] }>("/api/v1/groups/"),
   createGroup: (name: string) =>
     request<Group>("/api/v1/groups/", {

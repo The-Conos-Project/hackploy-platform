@@ -1,25 +1,21 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Plus } from "lucide-react";
+import { Plus, Trash2, Users, Workflow } from "lucide-react";
 import { toast } from "sonner";
-import { api, type Challenge, type Group } from "@/lib/api";
+import { api, type Group } from "@/lib/api";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 
 export function AdminGroupsPage() {
   const { t } = useI18n();
   const [groups, setGroups] = useState<Group[]>([]);
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [name, setName] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [selected, setSelected] = useState<Group | null>(null);
-  const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
-    const [g, c] = await Promise.all([api.listGroups(), api.listChallenges()]);
+    const g = await api.listGroups();
     setGroups(g.groups ?? []);
-    setChallenges(c.challenges ?? []);
   };
 
   useEffect(() => {
@@ -39,26 +35,6 @@ export function AdminGroupsPage() {
       await load();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "create failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const openAssign = (g: Group) => {
-    setSelected(g);
-    setPicked([...g.challenge_ids]);
-  };
-
-  const onAssign = async () => {
-    if (!selected) return;
-    setBusy(true);
-    try {
-      await api.assignLabs(selected.id, picked);
-      setSelected(null);
-      toast.success(t("labs_assigned"));
-      await load();
-    } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "assign failed");
     } finally {
       setBusy(false);
     }
@@ -90,33 +66,19 @@ export function AdminGroupsPage() {
           </p>
         </section>
       ) : (
-        <section className="card">
-          <ul className="list">
+        <div className="tile-panel">
+          <div className="tile-grid">
             {groups.map((g) => (
-              <li key={g.id} className="row">
-                <div>
-                  <Link to={`/admin/groups/${g.id}`} className="group-title-link">
-                    <strong>{g.name}</strong>
-                    <ChevronRight size={16} aria-hidden />
-                  </Link>
-                  <div className="small-text font-mono" style={{ marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    {t("join_code")}
-                    <ChevronRight size={12} aria-hidden />
-                    {g.join_code}
-                  </div>
-                  <div className="small-text" style={{ marginTop: 4 }}>
-                    {g.member_ids.length} {t("members")} · {g.challenge_ids.length} {t("assigned_labs")}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button type="button" className="secondary btn-compact" onClick={() => openAssign(g)}>
-                    {t("assign_labs")}
-                  </button>
+              <Link key={g.id} to={`/admin/groups/${g.id}`} className="tile-card tile-link">
+                <div className="row" style={{ marginBottom: 8 }}>
+                  <strong>{g.name}</strong>
                   <button
                     type="button"
-                    className="secondary btn-compact"
-                    disabled={busy}
-                    onClick={() =>
+                    className="icon-action"
+                    title={t("delete")}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       void (async () => {
                         setBusy(true);
                         try {
@@ -128,16 +90,28 @@ export function AdminGroupsPage() {
                         } finally {
                           setBusy(false);
                         }
-                      })()
-                    }
+                      })();
+                    }}
+                    disabled={busy}
                   >
-                    {t("delete")}
+                    <Trash2 size={15} />
                   </button>
                 </div>
-              </li>
+                <div className="tile-meta">
+                  <span>
+                    <Users size={14} /> {g.member_ids.length} {t("members")}
+                  </span>
+                  <span>
+                    <Workflow size={14} /> {g.challenge_ids.length} {t("assigned_labs")}
+                  </span>
+                </div>
+                <div className="small-text font-mono" style={{ marginTop: 10 }}>
+                  {g.join_code}
+                </div>
+              </Link>
             ))}
-          </ul>
-        </section>
+          </div>
+        </div>
       )}
 
       {createOpen ? (
@@ -156,48 +130,6 @@ export function AdminGroupsPage() {
                 {t("create_group")}
               </button>
             </form>
-          </div>
-        </div>
-      ) : null}
-
-      {selected ? (
-        <div className="modal" style={{ display: "flex" }} onClick={(e) => e.target === e.currentTarget && setSelected(null)}>
-          <div className="modal-content" style={{ width: "90%", maxWidth: 480 }}>
-            <div className="row" style={{ marginBottom: 16 }}>
-              <h3 style={{ margin: 0, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                {t("assign_labs")}
-                <ChevronRight size={16} aria-hidden />
-                {selected.name}
-              </h3>
-              <button type="button" className="modal-close" onClick={() => setSelected(null)}>
-                ×
-              </button>
-            </div>
-            <ul className="list">
-              {challenges.length === 0 ? <li>{t("no_challenges")}</li> : null}
-              {challenges.map((ch) => {
-                const on = picked.includes(ch.id);
-                return (
-                  <li key={ch.id}>
-                    <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        onChange={() =>
-                          setPicked((prev) =>
-                            on ? prev.filter((id) => id !== ch.id) : [...prev, ch.id],
-                          )
-                        }
-                      />
-                      <span>{ch.display_name || ch.name}</span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
-            <button type="button" className="btn-compact" disabled={busy} onClick={() => void onAssign()} style={{ marginTop: 12 }}>
-              {t("save")}
-            </button>
           </div>
         </div>
       ) : null}

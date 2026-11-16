@@ -116,6 +116,8 @@ func NewRouter(cfg config.Config, st *store.Store) http.Handler {
 		})
 
 		api.With(s.requireSession).Get("/leaderboard", s.leaderboard)
+		api.With(s.requireAdmin).Get("/users/", s.listUsers)
+		api.With(s.requireAdmin).Get("/metrics", s.adminMetrics)
 
 		api.Route("/domain", func(dr chi.Router) {
 			dr.With(s.requireAdmin).Get("/", s.getDomain)
