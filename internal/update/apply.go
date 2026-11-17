@@ -11,6 +11,10 @@ import (
 
 // Apply schedules a compose pull + recreate via a short-lived docker CLI helper,
 // same pattern as Hackploy 1.x (so the API container can restart safely).
+//
+// composeDir is a path on the Docker host (default /etc/hackploy). The platform
+// container may not mount that whole tree, so we verify the compose file via a
+// one-shot container that binds the host path — not via local os.Stat.
 func Apply(ctx context.Context, composeDir, helperImage string) error {
 	if composeDir == "" {
 		composeDir = "/etc/hackploy"
@@ -19,11 +23,18 @@ func Apply(ctx context.Context, composeDir, helperImage string) error {
 		helperImage = "docker:27-cli"
 	}
 	composeFile := filepath.Join(composeDir, "docker-compose.yml")
-	if _, err := os.Stat(composeFile); err != nil {
-		return fmt.Errorf("compose project not found at %s (dev installs update with: docker compose pull && up -d)", composeDir)
-	}
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
 		return fmt.Errorf("docker socket not available")
+	}
+
+	// Check host path through the Docker daemon (installer layout lives on the host).
+	check := exec.CommandContext(ctx, "docker", "run", "--rm",
+		"-v", composeDir+":"+composeDir+":ro",
+		"alpine:3.21",
+		"test", "-f", composeFile,
+	)
+	if out, err := check.CombinedOutput(); err != nil {
+		return fmt.Errorf("compose project not found at %s on the Docker host (%v: %s)", composeDir, err, string(out))
 	}
 
 	_ = exec.CommandContext(ctx, "docker", "rm", "-f", "hackploy-updater").Run()

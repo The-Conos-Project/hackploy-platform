@@ -1,8 +1,8 @@
-# Ubuntu via Multipass (local VPS)
+# Ubuntu via Multipass (local VPS, on-demand)
 
-CLI-only Ubuntu VM for Hackploy testing. No VirtualBox GUI.
+CLI-only Ubuntu VM for Hackploy testing. **Does not start on boot** — you start it when you need it and stop it when done.
 
-**Script directory (absolute path):**
+**Script directory:**
 
 ```text
 /home/zohid/Documents/Projects/Conos/Code/hackploy-platform/scripts/multipass-ubuntu
@@ -12,101 +12,79 @@ CLI-only Ubuntu VM for Hackploy testing. No VirtualBox GUI.
 cd /home/zohid/Documents/Projects/Conos/Code/hackploy-platform/scripts/multipass-ubuntu
 ```
 
-Instance name: **`hackploy`** (Ubuntu **24.04**, 4 CPU / 4 GB / 40 GB).
+Instance: **`hackploy`** (Ubuntu **24.04**, 4 CPU / 4 GB / 40 GB).
 
 ---
 
 ## One-time host install
 
-Snap was blocked/masked on some Conos hosts. Use the installer:
-
 ```bash
 ./install-multipass.sh
-```
-
-That removes `nosnap.pref` if present, installs `snapd` (held packages allowed), unmasks `snapd`, installs Multipass, and waits until `multipassd` is ready.
-
-Manual equivalent:
-
-```bash
-sudo rm -f /etc/apt/preferences.d/nosnap.pref
-sudo apt update
-sudo apt install -y --allow-change-held-packages snapd
-sudo systemctl unmask snapd.service snapd.socket
-sudo systemctl enable --now snapd.socket snapd.service
-sudo snap install multipass
-```
-
-Then create the VM once:
-
-```bash
 ./multipass-ubuntu.sh create
-./multipass-ubuntu.sh shell
+./multipass-ubuntu.sh ondemand   # disable boot autostart
 ```
 
-First create downloads the cloud image (~1–3+ min).
+`ondemand` stops the VM and runs `snap stop --disable multipass` so Multipass does **not** load at login/boot.
 
 ---
 
-## Daily use
+## When you need the VM
 
 ```bash
 cd /home/zohid/Documents/Projects/Conos/Code/hackploy-platform/scripts/multipass-ubuntu
-
-./multipass-ubuntu.sh status   # or: multipass list
-./multipass-ubuntu.sh shell    # login (no password)
-./multipass-ubuntu.sh ip       # Multipass NAT IPv4
-./multipass-ubuntu.sh stop
-./multipass-ubuntu.sh start
+./multipass-ubuntu.sh shell    # starts daemon + VM, then login
 ```
 
-Or without the script:
+Or:
 
 ```bash
-multipass shell hackploy
-multipass exec hackploy -- bash
+./multipass-ubuntu.sh start
+./multipass-ubuntu.sh shell
 ```
+
+## When finished
+
+```bash
+./multipass-ubuntu.sh stop     # stops VM + multipassd (frees RAM)
+```
+
+After reboot nothing Multipass-related is running until you `start` / `shell` again.  
+Do **not** run `create` again unless you destroyed the VM.
+
+IP may change — prefer `shell` over hard-coding the IP.
 
 ---
 
-## After reboot
+## Commands
 
-Multipass daemon (`multipass.multipassd`) is **enabled** and starts with the system.
-
-1. Open a terminal.
-2. `multipass list`
-3. If `hackploy` is **Stopped**: `./multipass-ubuntu.sh start`
-4. `./multipass-ubuntu.sh shell`
-
-You do **not** run `create` again after a normal reboot.
-
-IP may change after reboot — prefer `shell` over hard-coding the IP.
+| Command | What it does |
+| --- | --- |
+| `shell` | Start if needed, open a shell |
+| `start` | Start daemon + VM |
+| `stop` | Stop VM + daemon |
+| `ondemand` | One-time: disable autostart on boot |
+| `status` / `ip` | Info |
+| `destroy` / `recreate` | Wipe / rebuild VM |
 
 ---
 
 ## What persists / what does not
 
-| Persists | Does not / wipes |
+| Persists | Does not |
 | --- | --- |
-| VM disk, packages, files inside the guest | `./multipass-ubuntu.sh destroy` |
-| Multipass install across reboots | `./multipass-ubuntu.sh recreate` (destroy + create) |
-| | Uninstalling `multipass` / `snapd` |
+| VM disk & files while Stopped | Running CPU/RAM after `stop` or reboot |
+| Multipass package install | Autostart (disabled via `ondemand`) |
+| | `destroy` / `recreate` (wipes VM) |
 
 ---
 
 ## Specs & network
 
-Defaults: `CPUS=4` `MEM=4G` `DISK=40G` `IMAGE=24.04` `VM_NAME=hackploy`.
+Defaults: `CPUS=4` `MEM=4G` `DISK=40G` `IMAGE=24.04`.
 
-Default network is Multipass **NAT** (easy CLI access via `shell`).
+Optional LAN NIC: `BRIDGE_NIC=wlp0s20f3 ./multipass-ubuntu.sh recreate`
 
-Optional extra LAN / bridged NIC (can briefly disrupt Wi‑Fi while bridging):
-
-```bash
-BRIDGE_NIC=wlp0s20f3 ./multipass-ubuntu.sh recreate
-```
-
-Do not use `IMAGE=lts` / `26.04` on this host unless Multipass’s Resolute image hash is healthy — prefer **24.04**.
+Prefer **24.04** over `lts` / `26.04` on this host.
 
 ---
 
@@ -114,8 +92,6 @@ Do not use `IMAGE=lts` / `26.04` on this host unless Multipass’s Resolute imag
 
 | Symptom | Fix |
 | --- | --- |
-| `multipassd not ready` / missing root cert | `sudo snap restart multipass` then wait ~10s |
-| `snapd.service is masked` | `sudo systemctl unmask snapd.service snapd.socket` then enable/start |
-| Held package error installing snapd | `apt install -y --allow-change-held-packages snapd` |
-| Image hash mismatch | Use `IMAGE=24.04` (script default) |
-| Instance missing | `./multipass-ubuntu.sh create` again |
+| `multipassd not ready` | `sudo snap start multipass` then `./multipass-ubuntu.sh start` |
+| Still starts on boot | `./multipass-ubuntu.sh ondemand` (needs sudo once) |
+| Instance missing | `./multipass-ubuntu.sh create` then `ondemand` |
