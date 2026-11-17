@@ -11,6 +11,7 @@ import { AdminOverviewPage } from "@/pages/admin/Overview";
 import { AdminChallengesPage } from "@/pages/admin/Challenges";
 import { AdminGroupsPage } from "@/pages/admin/Groups";
 import { AdminGroupDetailPage } from "@/pages/admin/GroupDetail";
+import { AdminSetDetailPage } from "@/pages/admin/SetDetail";
 import { AdminUsersPage } from "@/pages/admin/Users";
 import { AdminSettingsPage } from "@/pages/admin/Settings";
 import { LeaderboardPage } from "@/pages/Leaderboard";
@@ -62,6 +63,14 @@ export default function App() {
           element={
             <RequireAuth role="admin">
               <AdminGroupDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/groups/:id/sets/:setId"
+          element={
+            <RequireAuth role="admin">
+              <AdminSetDetailPage />
             </RequireAuth>
           }
         />

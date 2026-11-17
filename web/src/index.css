@@ -1393,31 +1393,46 @@ button.secondary:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 10px;
 }
 
+.diff-label,
 .diff-pill {
-  font-size: 11px;
-  font-weight: 650;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
+.diff-label.diff-easy,
 .diff-pill.diff-easy {
   color: #86efac;
-  border-color: color-mix(in oklab, #86efac 35%, var(--border));
+  border-color: transparent;
 }
 
+.diff-label.diff-medium,
 .diff-pill.diff-medium {
   color: #fbbf24;
-  border-color: color-mix(in oklab, #fbbf24 35%, var(--border));
+  border-color: transparent;
 }
 
+.diff-label.diff-hard,
 .diff-pill.diff-hard {
   color: #fca5a5;
-  border-color: color-mix(in oklab, #fca5a5 35%, var(--border));
+  border-color: transparent;
+}
+
+.solved-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #86efac;
+  white-space: nowrap;
 }
 
 .solved-pill {
@@ -1649,32 +1664,10 @@ button.secondary:hover {
   text-align: left;
   cursor: pointer;
   width: 100%;
-  overflow: visible;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 148px;
-  padding-top: 16px;
-}
-
-.solved-badge-corner {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 2;
-  transform: translate(35%, -45%);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 9px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in oklab, #34d399 45%, var(--border));
-  background: color-mix(in oklab, #052e1a 70%, var(--card));
-  color: #86efac;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
 }
 
 .first-blood-slot {
@@ -1749,51 +1742,25 @@ button.secondary:hover {
 
 .modal-tab-body {
   margin-top: 4px;
+  min-height: 340px;
 }
 
 .lab-machine-card {
   margin-top: 14px;
-  padding: 14px;
+  padding: 12px;
   border-radius: 14px;
   border: 1px solid var(--border);
   background: color-mix(in oklab, var(--background) 55%, var(--card));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .lab-machine-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-
-.lab-machine-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 4px;
-}
-
-.lab-machine-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--muted-foreground);
-}
-
-.lab-machine-status.is-running {
-  color: #60a5fa;
-}
-
-.lab-machine-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: currentColor;
 }
 
 .lab-machine-timer {
@@ -1839,18 +1806,19 @@ button.btn-compact.danger:hover,
 .connect-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in oklab, #2dd4bf 35%, var(--border));
-  background: color-mix(in oklab, #042f2e 45%, var(--card));
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 70%, var(--card));
 }
 
 .connect-panel-label {
-  margin: 0;
+  margin: 0 0 2px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 11px;
+  color: var(--muted-foreground);
 }
 
 .connect-inline {
@@ -1858,19 +1826,36 @@ button.btn-compact.danger:hover,
   align-items: center;
   gap: 8px;
   min-width: 0;
+  width: 100%;
+  margin: 0;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.connect-inline:hover {
+  background: color-mix(in oklab, var(--accent) 55%, transparent);
 }
 
 .connect-inline .connect-label {
   flex: 0 0 auto;
-  min-width: 52px;
-  color: #5eead4;
+  min-width: 64px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .connect-inline .connect-value {
   flex: 1;
   min-width: 0;
-  color: #99f6e4;
-  font-weight: 650;
+  color: var(--foreground);
+  font-weight: 600;
+  font-size: 13px;
 }
 
 .machines-fab-info {
@@ -1906,19 +1891,38 @@ button.btn-compact.danger:hover,
   white-space: nowrap;
 }
 
-.admin-set-stack {
+.admin-assign-row {
   display: flex;
-  flex-direction: column;
-  gap: 22px;
+  align-items: stretch;
+  gap: 8px;
+  padding: 0;
+  overflow: hidden;
 }
 
-.admin-set-block + .admin-set-block {
-  padding-top: 18px;
-  border-top: 1px solid var(--border);
+.admin-assign-row .assign-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  color: inherit;
+  text-decoration: none;
 }
 
-.admin-challenge-tile {
-  min-height: 0;
+.admin-assign-row .assign-row-action {
+  align-self: center;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.admin-challenge-row {
+  cursor: default;
+}
+
+.admin-challenge-row:hover {
+  border-color: var(--border);
+  background: var(--card);
 }
 
 .challenge-tile .status-icon {

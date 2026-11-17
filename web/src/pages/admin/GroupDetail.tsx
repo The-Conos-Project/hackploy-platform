@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ChevronRight, Droplets, Layers, Plus, Trash2, UserRound, X } from "lucide-react";
+import { ChevronRight, Droplets, Layers, Plus, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Challenge, type Group } from "@/lib/api";
 import { assignLabs, getGroup, listChallenges, listUsers } from "@/lib/platform";
-import { challengeHints, challengePoints, groupBySet } from "@/lib/challengeMeta";
+import { challengePoints, groupBySet } from "@/lib/challengeMeta";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 import { PageTabs } from "@/components/PageTabs";
@@ -123,12 +123,6 @@ export function AdminGroupDetailPage() {
     await persistIds(next);
   };
 
-  const unassignChallenge = async (challengeId: string) => {
-    if (!group) return;
-    const next = group.challenge_ids.filter((cid) => cid !== challengeId);
-    await persistIds(next);
-  };
-
   return (
     <Shell role="admin">
       <p className="small-text" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -214,69 +208,35 @@ export function AdminGroupDetailPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="admin-set-stack">
+                  <div className="assign-list">
                     {sets.map(([name, items]) => {
                       const points = items.reduce((s, ch) => s + challengePoints(ch.flags), 0);
                       return (
-                        <div key={name} className="admin-set-block">
-                          <div className="row" style={{ marginBottom: 10 }}>
-                            <div>
-                              <strong style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                                <Layers size={16} /> {name}
-                              </strong>
+                        <div key={name} className="assign-row admin-assign-row">
+                          <Link
+                            to={`/admin/groups/${group.id}/sets/${encodeURIComponent(name)}`}
+                            className="assign-row-main"
+                          >
+                            <div className="assign-row-icon">
+                              <Layers size={18} />
+                            </div>
+                            <div className="assign-row-body">
+                              <strong>{name}</strong>
                               <div className="small-text">
                                 {items.length} {t("challenges_count")} · {points} {t("points")}
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              className="btn-compact secondary"
-                              disabled={busy}
-                              onClick={() => void unassignSet(name, items)}
-                            >
-                              <Trash2 size={14} /> {t("unassign_set")}
-                            </button>
-                          </div>
-                          <div className="tile-grid">
-                            {items.map((ch) => {
-                              const hints = challengeHints(ch.flags);
-                              return (
-                                <div key={ch.id} className="tile-card admin-challenge-tile">
-                                  <div className="row" style={{ marginBottom: 6 }}>
-                                    <strong>{ch.display_name || ch.name}</strong>
-                                    <button
-                                      type="button"
-                                      className="icon-action"
-                                      title={t("unassign_challenge")}
-                                      disabled={busy}
-                                      onClick={() => void unassignChallenge(ch.id)}
-                                    >
-                                      <X size={14} />
-                                    </button>
-                                  </div>
-                                  <div className="small-text">{ch.description}</div>
-                                  <div className="tile-meta" style={{ marginTop: 10 }}>
-                                    <span className="points-yellow">
-                                      {challengePoints(ch.flags)} {t("points")}
-                                    </span>
-                                    <span className={`status-badge status-${ch.build_status === "ready" ? "success" : "building"}`}>
-                                      {ch.build_status}
-                                    </span>
-                                  </div>
-                                  {hints.length > 0 ? (
-                                    <div className="hint-block hint-yellow" style={{ marginTop: 10, marginBottom: 0 }}>
-                                      <div className="hint-yellow-label">{t("hints")}</div>
-                                      <ul className="list">
-                                        {hints.map((h, i) => (
-                                          <li key={i}>{h}</li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              );
-                            })}
-                          </div>
+                            <span className="assign-row-status">{t("open")}</span>
+                          </Link>
+                          <button
+                            type="button"
+                            className="btn-compact secondary assign-row-action"
+                            disabled={busy}
+                            title={t("unassign_set")}
+                            onClick={() => void unassignSet(name, items)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       );
                     })}

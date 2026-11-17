@@ -1,6 +1,6 @@
 export type Lang = "uz" | "en";
 
-export const DEFAULT_LANG: Lang = "uz";
+export const DEFAULT_LANG: Lang = "en";
 export const LANG_COOKIE = "hackploy_lang";
 
 export const messages = {

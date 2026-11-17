@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CheckCircle2, ChevronRight, Copy, Droplets, Play, RefreshCw, Square, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, Droplets, Play, RefreshCw, Square, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Challenge, type Group, type LabInstance } from "@/lib/api";
 import { getGroup, listChallenges } from "@/lib/platform";
@@ -251,13 +251,13 @@ export function StudentSetDetailPage() {
           setActiveId(ch.id);
         }}
       >
-        {done ? (
-          <span className="solved-badge-corner">
-            <CheckCircle2 size={12} /> {t("status_solved")}
-          </span>
-        ) : null}
         <div className="challenge-card-top">
-          {diff ? <span className={`diff-pill diff-${diff.toLowerCase()}`}>{diff}</span> : <span />}
+          {diff ? <span className={`diff-label diff-${diff.toLowerCase()}`}>{diff}</span> : <span />}
+          {done ? (
+            <span className="solved-label">
+              <CheckCircle2 size={15} /> {t("status_solved")}
+            </span>
+          ) : null}
         </div>
         <strong className="challenge-card-title">{ch.display_name || ch.name}</strong>
         <div className="challenge-card-foot">
@@ -455,16 +455,7 @@ export function StudentSetDetailPage() {
 
                 <div className="lab-machine-card">
                   <div className="lab-machine-head">
-                    <div>
-                      <div className="lab-machine-title-row">
-                        <strong>{t("challenge_lab")}</strong>
-                        <span className="small-text">{t("desktop_recommended")}</span>
-                      </div>
-                      <div className={`lab-machine-status${runningSet ? " is-running" : ""}`}>
-                        <span className="lab-machine-dot" aria-hidden />
-                        {runningSet ? t("status_running") : t("status_stopped")}
-                      </div>
-                    </div>
+                    <strong>{t("challenge_lab")}</strong>
                     {runningSet ? (
                       <div className={`lab-machine-timer font-mono${leftSec <= 300 ? " is-urgent" : ""}`}>
                         {formatTimerMMSS(leftSec)}
@@ -482,20 +473,18 @@ export function StudentSetDetailPage() {
                         <div className="connect-panel">
                           <div className="small-text connect-panel-label">{t("connection")}</div>
                           {connect.map((field) => (
-                            <div key={field.id} className="connect-inline">
+                            <button
+                              key={field.id}
+                              type="button"
+                              className="connect-inline connect-copy"
+                              title={t("copy")}
+                              onClick={() => void onCopy(field.copyValue ?? field.value)}
+                            >
                               <span className="connect-label">
                                 {field.id === "password" ? t("password") : field.label}
                               </span>
                               <code className="font-mono connect-value">{field.value}</code>
-                              <button
-                                type="button"
-                                className="icon-action"
-                                title={t("copy")}
-                                onClick={() => void onCopy(field.copyValue ?? field.value)}
-                              >
-                                <Copy size={14} />
-                              </button>
-                            </div>
+                            </button>
                           ))}
                         </div>
                       ) : null}
