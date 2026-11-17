@@ -6,6 +6,7 @@ import { api, type Group } from "@/lib/api";
 import { listGroups } from "@/lib/platform";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
+import { CopyButton } from "@/components/CopyButton";
 
 export function AdminGroupsPage() {
   const { t } = useI18n();
@@ -70,13 +71,13 @@ export function AdminGroupsPage() {
       {loading ? (
         <p className="muted">{t("loading")}</p>
       ) : groups.length === 0 ? (
-        <section className="empty-state card">
+        <section className="empty-state card panel-fill">
           <p className="muted" style={{ margin: 0 }}>
             {t("no_groups")}
           </p>
         </section>
       ) : (
-        <div className="tile-panel">
+        <div className="tile-panel panel-fill">
           <div className="tile-grid">
             {groups.map((g) => (
               <Link key={g.id} to={`/admin/groups/${g.id}`} className="tile-card tile-link">
@@ -115,8 +116,21 @@ export function AdminGroupsPage() {
                     <Workflow size={14} /> {g.challenge_ids.length} {t("assigned_labs")}
                   </span>
                 </div>
-                <div className="small-text font-mono" style={{ marginTop: 10 }}>
-                  {g.join_code}
+                <div
+                  className="row"
+                  style={{ marginTop: 10, justifyContent: "flex-start", gap: 8 }}
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <span className="small-text">{t("join_code")}</span>
+                  <code className="font-mono small-text">{g.join_code}</code>
+                  <span
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                  >
+                    <CopyButton value={g.join_code} label={t("copy_join_code")} />
+                  </span>
                 </div>
               </Link>
             ))}

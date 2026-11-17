@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/The-Conos-Project/hackploy-platform/internal/auth"
@@ -13,15 +14,102 @@ import (
 
 var handleRe = regexp.MustCompile(`^[a-z0-9_]{3,24}$`)
 
+type profileStats struct {
+	Points      int `json:"points"`
+	Solved      int `json:"solved"`
+	FirstBloods int `json:"first_bloods"`
+}
+
+func (s *Server) profilePayload(id, username, handle, path, role string) map[string]any {
+	stats := s.computeProfileStats(id)
+	return map[string]any{
+		"id":           id,
+		"username":     username,
+		"handle":       handle,
+		"path":         path,
+		"role":         role,
+		"points":       stats.Points,
+		"solved":       stats.Solved,
+		"first_bloods": stats.FirstBloods,
+	}
+}
+
+func (s *Server) computeProfileStats(userID string) profileStats {
+	var out profileStats
+	if userID == "" || userID == "root" {
+		return out
+	}
+
+	insts, err := s.store.ListInstancesByUser(userID)
+	if err != nil {
+		return out
+	}
+	solvedByChallenge := map[string]map[string]bool{}
+	for _, inst := range insts {
+		var flags []string
+		_ = json.Unmarshal([]byte(inst.SubmittedFlags), &flags)
+		set := solvedByChallenge[inst.ChallengeID]
+		if set == nil {
+			set = map[string]bool{}
+		}
+		for _, f := range flags {
+			set[f] = true
+		}
+		solvedByChallenge[inst.ChallengeID] = set
+	}
+	for cid, got := range solvedByChallenge {
+		ch, _ := s.store.GetChallenge(cid)
+		if ch == nil {
+			continue
+		}
+		specs := parseFlagSpecs(ch.Flags)
+		awarded := 0
+		for _, spec := range specs {
+			if got[spec.Flag] {
+				out.Points += spec.Points
+				awarded++
+			}
+		}
+		if len(specs) > 0 && awarded == len(specs) {
+			out.Solved++
+		}
+	}
+
+	all, err := s.store.ListAllInstances()
+	if err != nil {
+		return out
+	}
+	type blood struct {
+		userID string
+		at     time.Time
+	}
+	first := map[string]blood{} // challengeID\x00flag -> earliest
+	for _, inst := range all {
+		var flags []string
+		_ = json.Unmarshal([]byte(inst.SubmittedFlags), &flags)
+		if len(flags) == 0 {
+			continue
+		}
+		for _, f := range flags {
+			key := inst.ChallengeID + "\x00" + f
+			prev, ok := first[key]
+			if !ok || inst.CreatedAt.Before(prev.at) {
+				first[key] = blood{userID: inst.UserID, at: inst.CreatedAt}
+			}
+		}
+	}
+	for _, b := range first {
+		if b.userID == userID {
+			out.FirstBloods++
+		}
+	}
+	return out
+}
+
 func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if strings.EqualFold(slug, "root") || strings.EqualFold(slug, "admin") {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"id":       "root",
-			"username": "root",
-			"handle":   "",
-			"path":     "/u/root",
-		})
+		writeJSON(w, http.StatusOK, s.profilePayload("root", "root", "", "/u/root", "admin"))
 		return
 	}
 	u, err := s.store.GetUserByProfileSlug(slug)
@@ -33,12 +121,7 @@ func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"id":       u.ID,
-		"username": u.Username,
-		"handle":   u.Handle,
-		"path":     u.ProfilePath(),
-	})
+	writeJSON(w, http.StatusOK, s.profilePayload(u.ID, u.Username, u.Handle, u.ProfilePath(), "student"))
 }
 
 func (s *Server) updateMyProfile(w http.ResponseWriter, r *http.Request) {
@@ -93,12 +176,7 @@ func (s *Server) updateMyProfile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "store error")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"id":       u.ID,
-		"username": u.Username,
-		"handle":   u.Handle,
-		"path":     u.ProfilePath(),
-	})
+	writeJSON(w, http.StatusOK, s.profilePayload(u.ID, u.Username, u.Handle, u.ProfilePath(), "student"))
 }
 
 func (h *authHandlers) changePassword(w http.ResponseWriter, r *http.Request) {

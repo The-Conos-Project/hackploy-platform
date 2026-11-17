@@ -1,6 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown } from "lucide-react";
 import { useI18n } from "@/i18n";
 import type { Lang } from "@/i18n/messages";
 
@@ -39,8 +38,8 @@ export function LangSwitch({
     const openUp = spaceBelow < menuH + 12;
 
     const menuW = 176;
-    if (compact) {
-      // Compact: park a fixed-width menu to the right of the rail
+    // Icon-only trigger: open beside or above the control.
+    if (compact || r.width <= 40) {
       const left = Math.min(r.right + 8, window.innerWidth - menuW - 8);
       setPos({
         ...(openUp ? { bottom: window.innerHeight - r.bottom + 6 } : { top: r.top }),
@@ -92,7 +91,7 @@ export function LangSwitch({
     >
       <button
         type="button"
-        className={`lang-trigger${compact ? " is-compact" : ""}`}
+        className="lang-trigger is-compact"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
@@ -103,10 +102,6 @@ export function LangSwitch({
         <span className="lang-flag" aria-hidden>
           {FLAGS[lang]}
         </span>
-        {!compact ? <span className="lang-code">{lang.toUpperCase()}</span> : null}
-        {!compact ? (
-          <ChevronDown size={14} aria-hidden className={open ? "chev open" : "chev"} />
-        ) : null}
       </button>
       {open && pos
         ? createPortal(
@@ -121,7 +116,7 @@ export function LangSwitch({
                 bottom: pos.bottom,
                 left: pos.left,
                 right: pos.right ?? "auto",
-                width: compact ? 176 : undefined,
+                width: 176,
               }}
             >
               {(["uz", "en"] as const).map((code) => (

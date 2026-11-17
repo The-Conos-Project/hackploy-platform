@@ -16,6 +16,7 @@ import { LeaderboardPage } from "@/pages/Leaderboard";
 import { StudentDashboardPage } from "@/pages/student/Dashboard";
 import { StudentGroupsPage } from "@/pages/student/Groups";
 import { StudentGroupDetailPage } from "@/pages/student/GroupDetail";
+import { StudentPackageDetailPage } from "@/pages/student/PackageDetail";
 import { ChangePasswordPage } from "@/pages/student/ChangePassword";
 
 export default function App() {
@@ -109,6 +110,14 @@ export default function App() {
           element={
             <RequireAuth role="student">
               <StudentGroupDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/groups/:id/packages/:pkg"
+          element={
+            <RequireAuth role="student">
+              <StudentPackageDetailPage />
             </RequireAuth>
           }
         />

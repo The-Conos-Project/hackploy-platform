@@ -55,7 +55,7 @@ export function StudentGroupsPage() {
       </div>
 
       {groups.length === 0 ? (
-        <section className="empty-state card">
+        <section className="empty-state card panel-fill">
           <p className="muted" style={{ margin: 0 }}>
             {t("no_groups")}
           </p>
@@ -64,7 +64,7 @@ export function StudentGroupsPage() {
           </button>
         </section>
       ) : (
-        <section className="card">
+        <section className="card panel-fill">
           <ul className="list">
             {groups.map((g) => (
               <li key={g.id}>

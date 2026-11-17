@@ -36,11 +36,13 @@ export function LeaderboardPage({ role }: { role: "admin" | "student" }) {
       <p className="muted">{t("leaderboard_body")}</p>
 
       {boards.length === 0 ? (
-        <section className="card">
-          <p className="small-text">{t("no_leaderboard")}</p>
+        <section className="card panel-fill empty-state">
+          <p className="small-text" style={{ margin: 0 }}>
+            {t("no_leaderboard")}
+          </p>
         </section>
       ) : (
-        <>
+        <section className="card panel-fill body-with-tabs">
           <PageTabs
             tabs={tabs}
             active={board?.group_id || active}
@@ -48,7 +50,7 @@ export function LeaderboardPage({ role }: { role: "admin" | "student" }) {
             label={t("nav_classes")}
           />
           {board ? (
-            <section className="card tab-panel">
+            <div className="tab-panel">
               <h2 style={{ marginTop: 0 }}>{board.group_name}</h2>
               {board.rows.length === 0 ? (
                 <p className="small-text">{t("no_scores")}</p>
@@ -74,9 +76,9 @@ export function LeaderboardPage({ role }: { role: "admin" | "student" }) {
                   </tbody>
                 </table>
               )}
-            </section>
+            </div>
           ) : null}
-        </>
+        </section>
       )}
     </Shell>
   );

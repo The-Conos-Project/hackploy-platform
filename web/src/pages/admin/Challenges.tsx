@@ -1,14 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ChevronDown, Hammer, Package, Plus, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ChevronDown, FileText, Hammer, Package, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Challenge } from "@/lib/api";
 import { listChallenges } from "@/lib/platform";
+import { groupByPackage, packageName } from "@/lib/challengeMeta";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
-
-function packageName(tag: string): string {
-  return tag.replace(/^hackploy-/, "") || tag || "unknown";
-}
 
 export function AdminChallengesPage() {
   const { t } = useI18n();
@@ -19,6 +16,12 @@ export function AdminChallengesPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [queryDraft, setQueryDraft] = useState("");
   const [query, setQuery] = useState("");
+  const [logPkg, setLogPkg] = useState<string | null>(null);
+  const [logChallengeId, setLogChallengeId] = useState<string | null>(null);
+  const [logText, setLogText] = useState("");
+  const [logBuilding, setLogBuilding] = useState(false);
+  const logEndRef = useRef<HTMLPreElement | null>(null);
+  const pollRef = useRef<number | null>(null);
 
   const load = async () => {
     setChallenges(await listChallenges());
@@ -30,21 +33,63 @@ export function AdminChallengesPage() {
     );
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    logEndRef.current?.scrollTo({ top: logEndRef.current.scrollHeight });
+  }, [logText]);
+
   const packages = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const map = new Map<string, Challenge[]>();
-    for (const ch of challenges) {
-      const key = packageName(ch.image_tag);
-      if (q) {
-        const hay = `${key} ${ch.display_name} ${ch.name} ${ch.description}`.toLowerCase();
-        if (!hay.includes(q)) continue;
-      }
-      const list = map.get(key) ?? [];
-      list.push(ch);
-      map.set(key, list);
-    }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const all = groupByPackage(challenges);
+    if (!q) return all;
+    return all.filter(([name, labs]) => {
+      const hay = `${name} ${labs.map((c) => `${c.display_name} ${c.name} ${c.description}`).join(" ")}`.toLowerCase();
+      return hay.includes(q);
+    });
   }, [challenges, query]);
+
+  const stopPoll = () => {
+    if (pollRef.current) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  const pollLog = (id: string) => {
+    stopPoll();
+    const tick = async () => {
+      try {
+        const res = await api.buildLog(id);
+        setLogText(res.log || "");
+        const list = await listChallenges();
+        setChallenges(list);
+        const ch = list.find((c) => c.id === id);
+        if (ch && (ch.build_status === "ready" || ch.build_status === "failed")) {
+          setLogBuilding(false);
+          stopPoll();
+        }
+      } catch {
+        /* keep polling */
+      }
+    };
+    void tick();
+    pollRef.current = window.setInterval(() => void tick(), 1200);
+  };
+
+  const openLog = (pkg: string, labs: Challenge[]) => {
+    const id = labs[0]?.id;
+    if (!id) return;
+    setLogPkg(pkg);
+    setLogChallengeId(id);
+    setLogText("");
+    setLogBuilding(labs.some((c) => c.build_status === "building"));
+    pollLog(id);
+  };
 
   const onUpload = async (file: File | null) => {
     if (!file) return;
@@ -77,41 +122,23 @@ export function AdminChallengesPage() {
     }
   };
 
-  const buildOne = async (id: string) => {
+  const buildPackage = async (pkg: string, labs: Challenge[]) => {
+    if (labs.length === 0) return;
+    const id = labs[0].id;
     setBusy(true);
+    setLogPkg(pkg);
+    setLogChallengeId(id);
+    setLogText("");
+    setLogBuilding(true);
+    pollLog(id);
     try {
       await api.buildChallenge(id);
-      toast.success(t("build"));
+      toast.success(t("build_started"));
       await load();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "build failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const deleteOne = async (id: string) => {
-    setBusy(true);
-    try {
-      await api.deleteChallenge(id);
-      toast.success(t("deleted"));
-      await load();
-    } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "delete failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const buildPackage = async (labs: Challenge[]) => {
-    if (labs.length === 0) return;
-    setBusy(true);
-    try {
-      await api.buildChallenge(labs[0].id);
-      toast.success(t("build"));
-      await load();
-    } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "build failed");
+      setLogBuilding(false);
+      stopPoll();
     } finally {
       setBusy(false);
     }
@@ -200,15 +227,15 @@ export function AdminChallengesPage() {
       ) : null}
 
       {packages.length === 0 ? (
-        <section className="empty-state card">
+        <section className="empty-state card panel-fill">
           <p className="muted" style={{ margin: 0 }}>
             {t("no_challenges")}
           </p>
         </section>
       ) : (
-        <div className="pkg-stack">
+        <div className="pkg-stack panel-fill">
           {packages.map(([name, labs]) => {
-            const isOpen = expanded[name] ?? true;
+            const isOpen = expanded[name] ?? false;
             const status = labs[0]?.build_status || "pending";
             return (
               <section key={name} className="card pkg-card">
@@ -228,7 +255,9 @@ export function AdminChallengesPage() {
                     <ChevronDown size={18} className={isOpen ? "chev open" : "chev"} />
                   </button>
                   <div className="icon-actions">
-                    <span className={`status-badge status-${status === "ready" ? "success" : status === "failed" ? "failed" : "building"}`}>
+                    <span
+                      className={`status-badge status-${status === "ready" ? "success" : status === "failed" ? "failed" : "building"}`}
+                    >
                       {status}
                     </span>
                     <button
@@ -236,9 +265,17 @@ export function AdminChallengesPage() {
                       className="icon-action"
                       title={t("build")}
                       disabled={busy}
-                      onClick={() => void buildPackage(labs)}
+                      onClick={() => void buildPackage(name, labs)}
                     >
                       <Hammer size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-action"
+                      title={t("view_build_log")}
+                      onClick={() => openLog(name, labs)}
+                    >
+                      <FileText size={15} />
                     </button>
                     <button
                       type="button"
@@ -256,29 +293,7 @@ export function AdminChallengesPage() {
                     <div className="tile-grid">
                       {labs.map((ch) => (
                         <div key={ch.id} className="tile-card">
-                          <div className="row">
-                            <strong>{ch.display_name || ch.name}</strong>
-                            <div className="icon-actions">
-                              <button
-                                type="button"
-                                className="icon-action"
-                                title={ch.build_status === "ready" ? t("rebuild") : t("build")}
-                                disabled={busy}
-                                onClick={() => void buildOne(ch.id)}
-                              >
-                                <Hammer size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                className="icon-action danger"
-                                title={t("delete")}
-                                disabled={busy}
-                                onClick={() => void deleteOne(ch.id)}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </div>
+                          <strong>{ch.display_name || ch.name}</strong>
                           <div className="small-text" style={{ marginTop: 6 }}>
                             {ch.description}
                           </div>
@@ -298,6 +313,46 @@ export function AdminChallengesPage() {
           })}
         </div>
       )}
+
+      {logPkg ? (
+        <div
+          className="modal"
+          style={{ display: "flex" }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              stopPoll();
+              setLogPkg(null);
+            }
+          }}
+        >
+          <div className="modal-content build-log-modal">
+            <div className="row" style={{ marginBottom: 12 }}>
+              <div>
+                <h3 style={{ margin: 0 }}>
+                  {t("build_log")} · {logPkg}
+                </h3>
+                <div className="small-text">
+                  {logBuilding ? t("build_running") : t("build_log_hint")}
+                  {logChallengeId ? ` · ${packageName(challenges.find((c) => c.id === logChallengeId)?.image_tag || logPkg)}` : null}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="icon-action"
+                onClick={() => {
+                  stopPoll();
+                  setLogPkg(null);
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <pre className="build-log" ref={logEndRef}>
+              {logText || t("build_log_empty")}
+            </pre>
+          </div>
+        </div>
+      ) : null}
     </Shell>
   );
 }

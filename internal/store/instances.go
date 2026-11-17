@@ -129,6 +129,19 @@ FROM instances WHERE status = 'running' ORDER BY created_at DESC`)
 	return collectInstances(rows)
 }
 
+func (s *Store) ListAllInstances() ([]Instance, error) {
+	rows, err := s.db.Query(`
+SELECT id, user_id, challenge_id, flag_index, container_id, container_name, host_port,
+  connection_type, status, created_at, expires_at, dynamic_flag, flag,
+  submitted_flags, attempt_counts, username, password
+FROM instances ORDER BY created_at ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return collectInstances(rows)
+}
+
 func (s *Store) DeleteInstance(id string) error {
 	_, err := s.db.Exec(`DELETE FROM instances WHERE id = ?`, id)
 	return err

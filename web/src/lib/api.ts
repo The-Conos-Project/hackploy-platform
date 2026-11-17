@@ -25,6 +25,10 @@ export type PublicProfile = {
   username: string;
   handle?: string;
   path: string;
+  role?: "admin" | "student";
+  points?: number;
+  solved?: number;
+  first_bloods?: number;
 };
 
 export type Challenge = {
@@ -115,7 +119,11 @@ export const api = {
   status: () => request<PlatformStatus>("/api/v1/status"),
   adminMetrics: () => request<AdminMetrics>("/api/v1/metrics"),
   version: () =>
-    request<{ version: string; challenge_format: string }>("/api/v1/version"),
+    request<{
+      version: string;
+      challenge_format: string;
+      instance_timeout_sec?: number;
+    }>("/api/v1/version"),
   me: () => request<SessionUser>("/api/v1/auth/me"),
   register: (username: string, password: string) =>
     request<SessionUser>("/api/v1/auth/register", {

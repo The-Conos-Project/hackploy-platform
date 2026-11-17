@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
+import { Droplets, Flag, Trophy, UserRound } from "lucide-react";
 import { api, type PublicProfile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/i18n";
@@ -47,7 +48,11 @@ export function ProfilePage() {
     }
   };
 
-  const role = user?.role === "admin" ? "admin" : "student";
+  const shellRole = user?.role === "admin" ? "admin" : "student";
+  const profileRole = profile?.role === "admin" ? "admin" : "student";
+  const roleLabel = profileRole === "admin" ? t("role_admin") : t("role_student");
+  const initial = (profile?.username || "?").slice(0, 1).toUpperCase();
+
   const body = missing ? (
     <>
       <h1>{t("not_found_title")}</h1>
@@ -58,39 +63,76 @@ export function ProfilePage() {
     <p className="muted">{t("loading")}</p>
   ) : (
     <>
-      <h1>{profile.username}</h1>
-      <p className="muted font-mono">{profile.path}</p>
-      <section className="card" style={{ marginTop: 16, maxWidth: 440 }}>
-        <div className="row">
-          <div>
-            <div className="small-text">{t("public_id")}</div>
-            <div className="font-mono" style={{ marginTop: 4 }}>
-              {profile.id}
+      <section className="card panel-fill profile-card">
+        <div className="profile-hero">
+          <div className="profile-avatar" aria-hidden>
+            <span className="profile-avatar-letter">{initial}</span>
+            <UserRound size={28} className="profile-avatar-icon" />
+          </div>
+          <div className="profile-hero-text">
+            <div className="profile-name-row">
+              <h1 style={{ margin: 0 }}>{profile.username}</h1>
+              <span className={`role-pill role-${profileRole}`}>{roleLabel}</span>
+            </div>
+            <div className="profile-id-row">
+              <span className="small-text">{t("public_id")}</span>
+              <code className="font-mono profile-id-value">{profile.id}</code>
+              <CopyButton value={profile.id} label={t("copy")} />
+            </div>
+            <div className="small-text font-mono muted" style={{ marginTop: 6 }}>
+              {profile.path}
             </div>
           </div>
-          <CopyButton value={profile.path} />
         </div>
+
+        <div className="profile-stats">
+          <div className="profile-stat">
+            <Trophy size={18} />
+            <div>
+              <div className="profile-stat-value font-mono">{profile.points ?? 0}</div>
+              <div className="small-text">{t("points")}</div>
+            </div>
+          </div>
+          <div className="profile-stat">
+            <Flag size={18} />
+            <div>
+              <div className="profile-stat-value font-mono">{profile.solved ?? 0}</div>
+              <div className="small-text">{t("challenges_solved")}</div>
+            </div>
+          </div>
+          <div className="profile-stat">
+            <Droplets size={18} />
+            <div>
+              <div className="profile-stat-value font-mono">{profile.first_bloods ?? 0}</div>
+              <div className="small-text">{t("first_bloods")}</div>
+            </div>
+          </div>
+        </div>
+
         {isMine && user?.role === "admin" ? (
-          <p className="small-text" style={{ marginTop: 16 }}>
-            {t("role_admin")}
+          <p className="small-text" style={{ marginTop: 18 }}>
+            {t("admin_profile_hint")}
           </p>
         ) : null}
+
         {isMine && user?.role !== "admin" ? (
-          <form onSubmit={(e) => void onSave(e)} style={{ marginTop: 16 }}>
+          <form onSubmit={(e) => void onSave(e)} className="profile-handle-form">
             <label className="small-text">{t("handle")}</label>
-            <input
-              className="font-mono"
-              value={handle}
-              onChange={(e) => setHandle(e.target.value.toLowerCase())}
-              placeholder={profile.id}
-              pattern="[a-z0-9_]{3,24}"
-            />
+            <div className="inline-field">
+              <input
+                className="font-mono"
+                value={handle}
+                onChange={(e) => setHandle(e.target.value.toLowerCase())}
+                placeholder={profile.id}
+                pattern="[a-z0-9_]{3,24}"
+              />
+              <button type="submit" className="btn-compact" disabled={busy}>
+                {t("save")}
+              </button>
+            </div>
             <p className="small-text" style={{ marginTop: 8 }}>
               {t("handle_hint")}
             </p>
-            <button type="submit" disabled={busy} style={{ marginTop: 12 }}>
-              {t("save")}
-            </button>
           </form>
         ) : null}
       </section>
@@ -98,7 +140,7 @@ export function ProfilePage() {
   );
 
   if (user) {
-    return <Shell role={role}>{body}</Shell>;
+    return <Shell role={shellRole}>{body}</Shell>;
   }
   return (
     <div className="auth-shell">

@@ -110,13 +110,12 @@ export function AdminGroupDetailPage() {
             <div>
               <h1 style={{ margin: 0 }}>{group.name}</h1>
               <div className="group-id-row">
-                <span className="small-text">{t("group_id")}</span>
-                <code className="font-mono group-id-value">{group.id}</code>
-                <CopyButton value={group.id} />
-                <span className="group-id-sep" aria-hidden />
                 <span className="small-text">{t("join_code")}</span>
                 <code className="font-mono group-id-value">{group.join_code}</code>
-                <CopyButton value={group.join_code} />
+                <CopyButton value={group.join_code} label={t("copy_join_code")} />
+                <span className="group-id-sep" aria-hidden />
+                <span className="small-text">{t("group_id")}</span>
+                <code className="font-mono group-id-value muted">{group.id}</code>
               </div>
             </div>
             <button

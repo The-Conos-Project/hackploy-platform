@@ -112,24 +112,25 @@ export function Shell({
 
   const profileTo = user?.path || `/u/${user?.id || ""}`;
 
+  const userLabel = user?.username || t("nav_profile");
+
   const adminNav: NavItem[] = [
     { key: "home", to: "/admin", label: t("nav_overview"), icon: <LayoutDashboard /> },
     { key: "labs", to: "/admin/labs", label: t("nav_challenges"), icon: <Workflow /> },
     { key: "leaderboard", to: "/admin/leaderboard", label: t("nav_leaderboard"), icon: <Trophy /> },
     { key: "users", to: "/admin/users", label: t("nav_users"), icon: <Users /> },
-    { key: "profile", to: profileTo, label: t("nav_profile"), icon: <UserRound /> },
+    { key: "profile", to: profileTo, label: userLabel, icon: <UserRound /> },
     { key: "settings", to: "/admin/settings", label: t("nav_settings"), icon: <Settings /> },
   ];
 
   const studentNav: NavItem[] = [
     { key: "home", to: "/dashboard", label: t("nav_dashboard"), icon: <LayoutDashboard /> },
     { key: "leaderboard", to: "/leaderboard", label: t("nav_leaderboard"), icon: <Trophy /> },
-    { key: "profile", to: profileTo, label: t("nav_profile"), icon: <UserRound /> },
+    { key: "profile", to: profileTo, label: userLabel, icon: <UserRound /> },
     { key: "password", to: "/change-password", label: t("nav_password"), icon: <KeyRound /> },
   ];
 
   const links = role === "admin" ? adminNav : studentNav;
-  const roleLabel = role === "admin" ? t("role_admin") : t("role_student");
   const remoteHint =
     update?.remote_version ||
     (update?.remote_digest ? update.remote_digest.replace(/^sha256:/, "").slice(0, 12) : "") ||
@@ -273,62 +274,50 @@ export function Shell({
         </nav>
 
         <div className="sidebar-foot">
-          <div className="sidebar-user-row">
-            <NavLink
-              to={profileTo}
-              className="sidebar-identity"
-              onClick={closeMobile}
-              title={t("nav_profile")}
-            >
-              <UserRound size={16} className="sidebar-identity-icon" />
-              <span className="nav-label font-mono sidebar-name">{user?.username}</span>
-              <span className="sidebar-id-sep" aria-hidden />
-              <span className="sidebar-role">{roleLabel}</span>
-            </NavLink>
-            <span className="desktop-lang">
-              <LangSwitch compact={collapsed} />
-            </span>
+          <div className="sidebar-meta-row">
+            {version ? (
+              <div className="version-wrap" ref={popupRef}>
+                <button
+                  type="button"
+                  className={`version-chip${update?.update_available ? " has-update" : ""}`}
+                  onClick={() => {
+                    if (role !== "admin") return;
+                    setVerOpen((v) => !v);
+                    void checkUpdates();
+                  }}
+                  title={t("version")}
+                >
+                  <span className="version-inline">
+                    <span className="version-label">{t("version")}</span>
+                    <span className="font-mono version-value">{version}</span>
+                    {update?.update_available ? <span className="update-dot" /> : null}
+                  </span>
+                </button>
+                {role === "admin" && verOpen ? (
+                  <div className="version-popup">
+                    <div className="version-popup-row">
+                      <span>{t("current_version")}</span>
+                      <code>{version}</code>
+                    </div>
+                    <div className="version-popup-row">
+                      <span>{t("new_version")}</span>
+                      <code>{update?.update_available ? remoteHint : version}</code>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={updating || !update?.update_available}
+                      onClick={() => void onUpgrade()}
+                    >
+                      {updating ? t("loading") : t("update_now")}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <span className="version-wrap-spacer" />
+            )}
+            <LangSwitch compact className="sidebar-lang" />
           </div>
-
-          {version ? (
-            <div className="version-wrap" ref={popupRef}>
-              <button
-                type="button"
-                className={`version-chip${update?.update_available ? " has-update" : ""}`}
-                onClick={() => {
-                  if (role !== "admin") return;
-                  setVerOpen((v) => !v);
-                  void checkUpdates();
-                }}
-                title={t("version")}
-              >
-                <span className="version-inline">
-                  <span className="version-label">{t("version")}</span>
-                  <span className="font-mono version-value">{version}</span>
-                  {update?.update_available ? <span className="update-dot" /> : null}
-                </span>
-              </button>
-              {role === "admin" && verOpen ? (
-                <div className="version-popup">
-                  <div className="version-popup-row">
-                    <span>{t("current_version")}</span>
-                    <code>{version}</code>
-                  </div>
-                  <div className="version-popup-row">
-                    <span>{t("new_version")}</span>
-                    <code>{update?.update_available ? remoteHint : version}</code>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={updating || !update?.update_available}
-                    onClick={() => void onUpgrade()}
-                  >
-                    {updating ? t("loading") : t("update_now")}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
 
           <button
             type="button"
