@@ -46,9 +46,11 @@ export function AdminSettingsPage() {
     try {
       const res = await api.applyUpdate();
       toast.success(res.message || t("update_started"));
+      window.setTimeout(() => {
+        window.location.href = "/";
+      }, 800);
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "update failed");
-    } finally {
       setBusy(false);
     }
   };
@@ -214,12 +216,12 @@ export function AdminSettingsPage() {
                   </div>
                 </div>
                 <div className="version-card">
-                  <div className="small-text">{t("remote_tag")}</div>
-                  <div className="version-card-value font-mono" style={{ fontSize: "1rem" }}>
-                    {status.image}
+                  <div className="small-text">{t("new_version")}</div>
+                  <div className="version-card-value font-mono">
+                    {status.remote_version || status.tag || "—"}
                   </div>
                   <div className="small-text font-mono" style={{ marginTop: 8 }}>
-                    {status.tag}
+                    {status.image}
                   </div>
                 </div>
                 <div className="version-card">

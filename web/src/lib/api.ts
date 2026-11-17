@@ -254,6 +254,7 @@ export type LabInstance = {
 
 export type UpdateStatus = {
   current: string;
+  remote_version?: string;
   image: string;
   tag: string;
   local_digest?: string;

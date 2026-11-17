@@ -98,9 +98,12 @@ export function Shell({
       const res = await api.applyUpdate();
       toast.success(res.message || t("update_started"));
       setVerOpen(false);
+      // Progress UI takes over via nginx while platform recreates.
+      window.setTimeout(() => {
+        window.location.href = "/";
+      }, 800);
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "update failed");
-    } finally {
       setUpdating(false);
     }
   };
@@ -127,9 +130,11 @@ export function Shell({
 
   const links = role === "admin" ? adminNav : studentNav;
   const roleLabel = role === "admin" ? t("role_admin") : t("role_student");
-  const remoteHint = update?.remote_digest
-    ? update.remote_digest.slice(0, 12)
-    : update?.tag || "—";
+  const remoteHint =
+    update?.remote_version ||
+    (update?.remote_digest ? update.remote_digest.replace(/^sha256:/, "").slice(0, 12) : "") ||
+    update?.tag ||
+    "—";
   const groupsRoot = role === "admin" ? "/admin/groups" : "/groups";
 
   return (
