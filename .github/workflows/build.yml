@@ -45,13 +45,17 @@ jobs:
       - name: Version string
         id: ver
         run: |
-          # Tags: exact release (v2.1.0 → 2.1.0).
-          # main: auto-increment every CI run so VPS Settings shows a new number.
-          SHORT_SHA="$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          # Single 2.x.x line with website + install.sh (see VERSION + .cursor/rules/hackploy-version.mdc).
+          # Tags win; otherwise embed the VERSION file exactly.
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           else
-            echo "version=2.0.${{ github.run_number }}+${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            ver="$(tr -d '[:space:]' < VERSION)"
+            if [[ ! "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "VERSION file must be 2.x.x, got: $ver" >&2
+              exit 1
+            fi
+            echo "version=${ver}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build and push
