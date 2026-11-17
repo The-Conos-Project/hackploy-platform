@@ -14,11 +14,15 @@ import { AdminGroupDetailPage } from "@/pages/admin/GroupDetail";
 import { AdminSetDetailPage } from "@/pages/admin/SetDetail";
 import { AdminUsersPage } from "@/pages/admin/Users";
 import { AdminSettingsPage } from "@/pages/admin/Settings";
+import { AdminCompetitionsPage } from "@/pages/admin/Competitions";
+import { AdminCompetitionDetailPage } from "@/pages/admin/CompetitionDetail";
 import { LeaderboardPage } from "@/pages/Leaderboard";
 import { StudentDashboardPage } from "@/pages/student/Dashboard";
 import { StudentGroupsPage } from "@/pages/student/Groups";
 import { StudentGroupDetailPage } from "@/pages/student/GroupDetail";
 import { StudentSetDetailPage } from "@/pages/student/SetDetail";
+import { StudentCompetitionsPage } from "@/pages/student/Competitions";
+import { StudentCompetitionDetailPage } from "@/pages/student/CompetitionDetail";
 import { StudentSettingsPage } from "@/pages/student/Settings";
 import { watchUpdateHandoff } from "@/lib/updateHandoff";
 
@@ -98,6 +102,22 @@ export default function App() {
             </RequireAuth>
           }
         />
+        <Route
+          path="/admin/competitions"
+          element={
+            <RequireAuth role="admin">
+              <AdminCompetitionsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/competitions/:id"
+          element={
+            <RequireAuth role="admin">
+              <AdminCompetitionDetailPage />
+            </RequireAuth>
+          }
+        />
 
         <Route path="/admin/challenges" element={<Navigate to="/admin/labs" replace />} />
         <Route path="/admin/classes" element={<Navigate to="/admin/groups" replace />} />
@@ -156,6 +176,22 @@ export default function App() {
           element={
             <RequireAuth role="student">
               <StudentSettingsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/competitions"
+          element={
+            <RequireAuth role="student">
+              <StudentCompetitionsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/competitions/:id"
+          element={
+            <RequireAuth role="student">
+              <StudentCompetitionDetailPage />
             </RequireAuth>
           }
         />

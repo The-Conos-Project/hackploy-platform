@@ -115,11 +115,32 @@ func NewRouter(cfg config.Config, st *store.Store) http.Handler {
 			gr.With(s.requireSession).Get("/{id}/members", s.groupMembers)
 			gr.With(s.requireAdmin).Delete("/{id}", s.deleteGroup)
 			gr.With(s.requireAdmin).Put("/{id}/labs", s.assignLabs)
+			gr.With(s.requireSession).Get("/{id}/assignments", s.listAssignments)
+			gr.With(s.requireAdmin).Post("/{id}/assignments", s.createAssignment)
+			gr.With(s.requireAdmin).Put("/{id}/assignments/{aid}", s.updateAssignment)
+			gr.With(s.requireAdmin).Delete("/{id}/assignments/{aid}", s.deleteAssignment)
 		})
 
 		api.With(s.requireSession).Get("/leaderboard", s.leaderboard)
 		api.With(s.requireAdmin).Get("/users/", s.listUsers)
 		api.With(s.requireAdmin).Get("/metrics", s.adminMetrics)
+
+		api.Route("/competitions", func(cr chi.Router) {
+			cr.With(s.requireSession).Get("/", s.listCompetitions)
+			cr.With(s.requireAdmin).Post("/", s.createCompetition)
+			cr.With(s.requireSession).Post("/join", s.joinCompetition)
+			cr.With(s.requireSession).Get("/{id}", s.getCompetition)
+			cr.With(s.requireAdmin).Put("/{id}", s.updateCompetition)
+			cr.With(s.requireAdmin).Delete("/{id}", s.deleteCompetition)
+			cr.With(s.requireAdmin).Put("/{id}/challenges", s.setCompetitionChallenges)
+			cr.With(s.requireAdmin).Post("/{id}/start", s.startCompetition)
+			cr.With(s.requireAdmin).Post("/{id}/end", s.endCompetition)
+			cr.With(s.requireSession).Get("/{id}/teams", s.listTeams)
+			cr.With(s.requireSession).Post("/{id}/teams", s.createTeam)
+			cr.With(s.requireSession).Post("/{id}/teams/join", s.joinTeam)
+			cr.With(s.requireSession).Post("/{id}/flag", s.competitionFlag)
+			cr.With(s.requireSession).Get("/{id}/stats", s.competitionStats)
+		})
 
 		api.Route("/domain", func(dr chi.Router) {
 			dr.With(s.requireAdmin).Get("/", s.getDomain)

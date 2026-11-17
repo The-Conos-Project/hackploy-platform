@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Group } from "@/lib/api";
 import { listGroups } from "@/lib/platform";
@@ -70,10 +70,13 @@ export function AdminGroupsPage() {
       {loading ? (
         <p className="muted">{t("loading")}</p>
       ) : groups.length === 0 ? (
-        <section className="empty-state card panel-fill">
-          <p className="muted" style={{ margin: 0 }}>
-            {t("no_groups")}
-          </p>
+        <section className="card panel-fill">
+          <div className="tab-empty">
+            <Users size={28} className="tab-empty-icon" aria-hidden />
+            <p className="muted" style={{ margin: 0 }}>
+              {t("no_groups")}
+            </p>
+          </div>
         </section>
       ) : (
         <div className="tile-panel panel-fill">

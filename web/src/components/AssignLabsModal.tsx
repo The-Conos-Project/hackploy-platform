@@ -5,20 +5,23 @@ import { useI18n } from "@/i18n";
 import { setName } from "@/lib/challengeMeta";
 import { Checkbox } from "./Checkbox";
 
+export type AssignmentDraft = {
+  set_key: string;
+  display_name: string;
+  deadline_at: string;
+  challenge_ids: string[];
+};
+
 export function AssignLabsModal({
   challenges,
-  selected,
-  onChange,
   onClose,
   onSave,
   busy,
   title,
 }: {
   challenges: Challenge[];
-  selected: string[];
-  onChange: (ids: string[]) => void;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (draft: AssignmentDraft) => void;
   busy?: boolean;
   title: string;
 }) {
@@ -27,6 +30,9 @@ export function AssignLabsModal({
   const [query, setQuery] = useState("");
   const [setFilter, setSetFilter] = useState<string>("all");
   const [openSets, setOpenSets] = useState<Record<string, boolean>>({});
+  const [selected, setSelected] = useState<string[]>([]);
+  const [displayName, setDisplayName] = useState("");
+  const [deadline, setDeadline] = useState("");
 
   const sets = useMemo(() => {
     const map = new Map<string, Challenge[]>();
@@ -59,9 +65,21 @@ export function AssignLabsModal({
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
+  const inferredSetKey = useMemo(() => {
+    const keys = new Set<string>();
+    for (const ch of challenges) {
+      if (selectedSet.has(ch.id)) keys.add(setName(ch.image_tag));
+    }
+    if (keys.size === 1) return [...keys][0];
+    if (setFilter !== "all") return setFilter;
+    return [...keys][0] || "";
+  }, [challenges, selectedSet, setFilter]);
+
+  const defaultName = displayName.trim() || inferredSetKey;
+
   const toggleOne = (id: string, on: boolean) => {
-    if (on) onChange([...selected, id]);
-    else onChange(selected.filter((x) => x !== id));
+    if (on) setSelected((prev) => [...prev, id]);
+    else setSelected((prev) => prev.filter((x) => x !== id));
   };
 
   const toggleSet = (labs: Challenge[], on: boolean) => {
@@ -69,10 +87,10 @@ export function AssignLabsModal({
     if (on) {
       const next = new Set(selected);
       for (const id of ids) next.add(id);
-      onChange([...next]);
+      setSelected([...next]);
     } else {
       const drop = new Set(ids);
-      onChange(selected.filter((id) => !drop.has(id)));
+      setSelected(selected.filter((id) => !drop.has(id)));
     }
   };
 
@@ -83,6 +101,21 @@ export function AssignLabsModal({
     return { checked: false, indeterminate: true };
   };
 
+  const submit = () => {
+    if (selected.length === 0) return;
+    let deadlineISO = "";
+    if (deadline.trim()) {
+      const d = new Date(deadline);
+      if (!Number.isNaN(d.getTime())) deadlineISO = d.toISOString();
+    }
+    onSave({
+      set_key: inferredSetKey,
+      display_name: defaultName,
+      deadline_at: deadlineISO,
+      challenge_ids: selected,
+    });
+  };
+
   return (
     <div className="modal" style={{ display: "flex" }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-content assign-modal">
@@ -91,6 +124,21 @@ export function AssignLabsModal({
           <button type="button" className="modal-close" onClick={onClose}>
             ×
           </button>
+        </div>
+
+        <div className="assign-meta-fields" style={{ display: "grid", gap: 10, marginBottom: 14 }}>
+          <div>
+            <label className="small-text">{t("assignment_name")}</label>
+            <input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder={inferredSetKey || t("assignment_name")}
+            />
+          </div>
+          <div>
+            <label className="small-text">{t("assignment_deadline")}</label>
+            <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+          </div>
         </div>
 
         <div className="assign-layout">
@@ -123,7 +171,10 @@ export function AssignLabsModal({
             <div className="assign-search">
               <input
                 value={queryDraft}
-                onChange={(e) => setQueryDraft(e.target.value)}
+                onChange={(e) => {
+                  setQueryDraft(e.target.value);
+                  setQuery(e.target.value);
+                }}
                 placeholder={t("search_labs")}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") setQuery(queryDraft);
@@ -136,7 +187,12 @@ export function AssignLabsModal({
 
             <div className="assign-sets">
               {filteredSets.length === 0 ? (
-                <p className="small-text">{t("no_challenges")}</p>
+                <div className="tab-empty">
+                  <Layers size={28} className="tab-empty-icon" aria-hidden />
+                  <p className="muted" style={{ margin: 0 }}>
+                    {t("no_challenges")}
+                  </p>
+                </div>
               ) : null}
               {filteredSets.map(([name, labs]) => {
                 const open = openSets[name] ?? true;
@@ -171,7 +227,9 @@ export function AssignLabsModal({
                                 onChange={(next) => toggleOne(ch.id, next)}
                                 label={ch.display_name || ch.name}
                               />
-                              <span className={`status-badge status-${ch.build_status === "ready" ? "success" : ch.build_status === "failed" ? "failed" : "building"}`}>
+                              <span
+                                className={`status-badge status-${ch.build_status === "ready" ? "success" : ch.build_status === "failed" ? "failed" : "building"}`}
+                              >
                                 {ch.build_status}
                               </span>
                             </li>
@@ -190,8 +248,8 @@ export function AssignLabsModal({
           <span className="small-text">
             {selected.length} {t("selected")}
           </span>
-          <button type="button" className="btn-compact" disabled={busy} onClick={onSave}>
-            {t("save")}
+          <button type="button" className="btn-compact" disabled={busy || selected.length === 0} onClick={submit}>
+            {t("create_assignment")}
           </button>
         </div>
       </div>

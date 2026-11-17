@@ -19,6 +19,15 @@ export type SessionUser = {
   expires?: string;
 };
 
+export type CompetitionAward = {
+  id: string;
+  competition_id: string;
+  user_id: string;
+  kind: string;
+  label: string;
+  created_at?: string;
+};
+
 export type PublicProfile = {
   id: string;
   username: string;
@@ -27,6 +36,7 @@ export type PublicProfile = {
   points?: number;
   solved?: number;
   first_bloods?: number;
+  awards?: CompetitionAward[];
 };
 
 export type Challenge = {
@@ -56,6 +66,58 @@ export type Group = {
   challenge_ids: string[];
   member_ids: string[];
   created_at?: string;
+};
+
+export type GroupAssignment = {
+  id: string;
+  group_id: string;
+  set_key: string;
+  display_name: string;
+  deadline_at?: string | null;
+  challenge_ids: string[];
+  created_at?: string;
+};
+
+export type Competition = {
+  id: string;
+  name: string;
+  join_code: string;
+  max_teams: number;
+  join_closes_at?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  duration_min: number;
+  status: string;
+  created_at?: string;
+  challenge_ids?: string[];
+  my_team?: Team;
+  my_solves?: TeamSolve[];
+};
+
+export type Team = {
+  id: string;
+  competition_id: string;
+  name: string;
+  join_code: string;
+  captain_user_id: string;
+  created_at?: string;
+  members?: { id: string; username: string; path: string }[];
+};
+
+export type TeamSolve = {
+  team_id: string;
+  challenge_id: string;
+  flag: string;
+  solved_by: string;
+  solved_at: string;
+};
+
+export type CompetitionEvent = {
+  id: string;
+  competition_id: string;
+  team_id: string;
+  points_total: number;
+  at: string;
 };
 
 export type LeaderboardRow = {
@@ -248,6 +310,118 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ challenge_ids: challengeIds }),
     }),
+  listAssignments: (id: string) =>
+    request<{ assignments: GroupAssignment[] }>(`/api/v1/groups/${id}/assignments`),
+  createAssignment: (
+    id: string,
+    body: {
+      set_key: string;
+      display_name: string;
+      deadline_at?: string;
+      challenge_ids: string[];
+    },
+  ) =>
+    request<GroupAssignment>(`/api/v1/groups/${id}/assignments`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateAssignment: (
+    id: string,
+    aid: string,
+    body: Partial<{
+      set_key: string;
+      display_name: string;
+      deadline_at: string;
+      challenge_ids: string[];
+      clear_deadline: boolean;
+    }>,
+  ) =>
+    request<GroupAssignment>(`/api/v1/groups/${id}/assignments/${aid}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteAssignment: (id: string, aid: string) =>
+    request<{ ok: string }>(`/api/v1/groups/${id}/assignments/${aid}`, {
+      method: "DELETE",
+    }),
+  listCompetitions: () =>
+    request<{ competitions: Competition[] }>("/api/v1/competitions/"),
+  createCompetition: (body: {
+    name: string;
+    max_teams?: number;
+    duration_min?: number;
+    join_closes_at?: string;
+  }) =>
+    request<Competition>("/api/v1/competitions/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getCompetition: (id: string) => request<Competition>(`/api/v1/competitions/${id}`),
+  updateCompetition: (
+    id: string,
+    body: Partial<{
+      name: string;
+      max_teams: number;
+      duration_min: number;
+      join_closes_at: string;
+      status: string;
+    }>,
+  ) =>
+    request<Competition>(`/api/v1/competitions/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteCompetition: (id: string) =>
+    request<{ ok: string }>(`/api/v1/competitions/${id}`, { method: "DELETE" }),
+  setCompetitionChallenges: (id: string, challengeIds: string[]) =>
+    request<{ challenge_ids: string[] }>(`/api/v1/competitions/${id}/challenges`, {
+      method: "PUT",
+      body: JSON.stringify({ challenge_ids: challengeIds }),
+    }),
+  startCompetition: (id: string) =>
+    request<Competition>(`/api/v1/competitions/${id}/start`, { method: "POST" }),
+  endCompetition: (id: string) =>
+    request<Competition>(`/api/v1/competitions/${id}/end`, { method: "POST" }),
+  joinCompetition: (code: string) =>
+    request<Competition>("/api/v1/competitions/join", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+  listCompetitionTeams: (id: string) =>
+    request<{ teams: Team[] }>(`/api/v1/competitions/${id}/teams`),
+  createTeam: (id: string, name: string) =>
+    request<Team>(`/api/v1/competitions/${id}/teams`, {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  joinTeam: (id: string, code: string) =>
+    request<Team>(`/api/v1/competitions/${id}/teams/join`, {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
+  submitCompetitionFlag: (id: string, challengeId: string, flag: string) =>
+    request<{
+      ok: boolean;
+      already?: boolean;
+      partial?: boolean;
+      accepted?: string;
+      points?: number;
+      team_pts?: number;
+      completed?: number;
+      total?: number;
+    }>(`/api/v1/competitions/${id}/flag`, {
+      method: "POST",
+      body: JSON.stringify({ challenge_id: challengeId, flag }),
+    }),
+  competitionStats: (id: string) =>
+    request<{
+      board: { team_id: string; team_name: string; points: number; solved: number }[];
+      events: CompetitionEvent[];
+      awards: CompetitionAward[];
+      solves: TeamSolve[];
+      status: string;
+      ends_at?: string | null;
+    }>(`/api/v1/competitions/${id}/stats`),
   leaderboard: (groupId?: string) =>
     request<{ boards: LeaderboardBoard[] }>(
       `/api/v1/leaderboard${groupId ? `?group_id=${encodeURIComponent(groupId)}` : ""}`,

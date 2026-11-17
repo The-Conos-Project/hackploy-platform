@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChevronRight, Droplets, Flag, Layers, Trophy, UserRound } from "lucide-react";
 import { toast } from "sonner";
-import { api, type Challenge, type Group, type LabInstance } from "@/lib/api";
+import { api, type Challenge, type Group, type GroupAssignment, type LabInstance } from "@/lib/api";
 import { getGroup, listChallenges } from "@/lib/platform";
 import {
   challengePoints,
@@ -35,6 +35,7 @@ export function StudentGroupDetailPage() {
   const [board, setBoard] = useState<BoardRow[]>([]);
   const [bloods, setBloods] = useState<Record<string, string>>({});
   const [labs, setLabs] = useState<LabInstance[]>([]);
+  const [assignments, setAssignments] = useState<GroupAssignment[]>([]);
   const [tab, setTab] = useState("assignments");
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -47,12 +48,13 @@ export function StudentGroupDetailPage() {
 
     void (async () => {
       try {
-        const [g, mem, stats, labRes, c] = await Promise.all([
+        const [g, mem, stats, labRes, c, asg] = await Promise.all([
           getGroup(id),
           api.groupMembers(id),
           api.groupSetStats(id).catch(() => null),
           api.listLabs().catch(() => ({ labs: [] as LabInstance[] })),
           listChallenges().catch(() => [] as Challenge[]),
+          api.listAssignments(id).catch(() => ({ assignments: [] as GroupAssignment[] })),
         ]);
         if (!alive) return;
         setGroup(g);
@@ -60,6 +62,7 @@ export function StudentGroupDetailPage() {
         setBoard(stats?.board ?? []);
         setBloods(stats?.bloods ?? {});
         setLabs(labRes.labs ?? []);
+        setAssignments(asg.assignments ?? []);
         const map = new Map(c.map((ch) => [ch.id, ch]));
         setChallenges(g.challenge_ids.map((cid) => map.get(cid)).filter(Boolean) as Challenge[]);
       } catch (cause) {
@@ -77,6 +80,11 @@ export function StudentGroupDetailPage() {
   }, [id]);
 
   const sets = useMemo(() => groupBySet(challenges), [challenges]);
+  const challengeMap = useMemo(() => {
+    const m = new Map<string, Challenge>();
+    for (const ch of challenges) m.set(ch.id, ch);
+    return m;
+  }, [challenges]);
 
   const submitted = useMemo(() => {
     const tags = new Set(challenges.map((ch) => ch.image_tag));
@@ -146,10 +154,49 @@ export function StudentGroupDetailPage() {
 
             {tab === "assignments" ? (
               <div className="tab-panel">
-                {sets.length === 0 ? (
-                  <p className="muted" style={{ margin: 0 }}>
-                    {t("no_assigned_labs")}
-                  </p>
+                {assignments.length === 0 && sets.length === 0 ? (
+                  <div className="tab-empty">
+                    <Layers size={28} className="tab-empty-icon" aria-hidden />
+                    <p className="muted" style={{ margin: 0 }}>
+                      {t("no_assigned_labs")}
+                    </p>
+                  </div>
+                ) : assignments.length > 0 ? (
+                  <div className="assign-list">
+                    {assignments.map((a) => {
+                      const items = a.challenge_ids
+                        .map((cid) => challengeMap.get(cid))
+                        .filter(Boolean) as Challenge[];
+                      const points = items.reduce((s, ch) => s + challengePoints(ch.flags), 0);
+                      const solved = solvedCount(items, submitted);
+                      const setPath = a.set_key || a.display_name;
+                      const locked =
+                        !!a.deadline_at && new Date(a.deadline_at).getTime() < Date.now();
+                      return (
+                        <Link
+                          key={a.id}
+                          to={`/groups/${group.id}/sets/${encodeURIComponent(setPath)}`}
+                          className="assign-row"
+                        >
+                          <div className="assign-row-icon">
+                            <Layers size={18} />
+                          </div>
+                          <div className="assign-row-body">
+                            <strong>{a.display_name || a.set_key}</strong>
+                            <div className="small-text">
+                              {solved}/{items.length} {t("challenges_count")} · {points} {t("points")}
+                              {a.deadline_at
+                                ? ` · ${new Date(a.deadline_at).toLocaleString()}`
+                                : ""}
+                            </div>
+                          </div>
+                          <span className="assign-row-status">
+                            {locked ? t("assignment_locked") : t("open")}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <div className="assign-list">
                     {sets.map(([name, items]) => {

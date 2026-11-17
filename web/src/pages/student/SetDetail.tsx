@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CheckCircle2, ChevronRight, Droplets, Play, RefreshCw, Square, X } from "lucide-react";
 import { toast } from "sonner";
-import { api, type Challenge, type Group, type LabInstance } from "@/lib/api";
+import { api, type Challenge, type Group, type GroupAssignment, type LabInstance } from "@/lib/api";
 import { getGroup, listChallenges } from "@/lib/platform";
 import {
   challengeDifficulty,
@@ -43,30 +43,40 @@ export function StudentSetDetailPage() {
   const [pageTab, setPageTab] = useState("challenges");
   const [modalTab, setModalTab] = useState("details");
   const [now, setNow] = useState(() => Date.now());
+  const [assignment, setAssignment] = useState<GroupAssignment | null>(null);
 
   const load = async () => {
-    const [g, c, l, ver, st] = await Promise.all([
+    const [g, c, l, ver, asg] = await Promise.all([
       getGroup(id),
       listChallenges(),
       api.listLabs(),
       api.version().catch(() => null),
-      api.groupSetStats(id, setKey).catch(() => null),
+      api.listAssignments(id).catch(() => ({ assignments: [] as GroupAssignment[] })),
     ]);
     setGroup(g);
-    setStats(st);
     if (ver?.instance_timeout_sec) setTimeoutSec(ver.instance_timeout_sec);
     const map = new Map(c.map((ch) => [ch.id, ch]));
     const assigned = g.challenge_ids.map((cid) => map.get(cid)).filter(Boolean) as Challenge[];
     const sets = groupBySet(assigned);
-    const match = sets.find(([name]) => name === setKey);
+    const matchAsg =
+      (asg.assignments ?? []).find((a) => a.set_key === setKey || a.display_name === setKey) || null;
+    setAssignment(matchAsg);
+    let match = sets.find(([name]) => name === setKey);
+    if (!match && matchAsg) {
+      const items = matchAsg.challenge_ids.map((cid) => map.get(cid)).filter(Boolean) as Challenge[];
+      if (items.length) match = [matchAsg.set_key || matchAsg.display_name, items];
+    }
     if (!match) {
       setNotFound(true);
       setLabs([]);
+      setStats(null);
       return;
     }
     setNotFound(false);
     setLabs(match[1]);
     setRunning(l.labs ?? []);
+    const statsKey = matchAsg?.set_key || match[0];
+    setStats(await api.groupSetStats(id, statsKey).catch(() => null));
   };
 
   useEffect(() => {
@@ -181,9 +191,16 @@ export function StudentSetDetailPage() {
     }
   };
 
+  const deadlineLocked =
+    !!assignment?.deadline_at && new Date(assignment.deadline_at).getTime() < Date.now();
+
   const submitFlag = async (e: FormEvent) => {
     e.preventDefault();
     if (!runningSet || !active) return;
+    if (deadlineLocked) {
+      toast.error(t("assignment_locked"));
+      return;
+    }
     const flag = flagDraft.trim();
     if (!flag) return;
     setBusy(true);
@@ -208,7 +225,7 @@ export function StudentSetDetailPage() {
     }
   };
 
-  const title = setName(labs[0]?.image_tag || setKey);
+  const title = assignment?.display_name || setName(labs[0]?.image_tag || setKey);
   const ready = labs.every((ch) => ch.build_status === "ready") || labs.some((ch) => ch.build_status === "ready");
   const connect = runningSet ? connectionFields(runningSet) : [];
   const mySolved = solvedCount(labs, submitted);
@@ -238,7 +255,6 @@ export function StudentSetDetailPage() {
     const pts = challengePoints(ch.flags);
     const done = challengeSolved(ch, submitted);
     const diff = challengeDifficulty(ch);
-    const solveN = solves[ch.id] || 0;
     const fb = bloods[ch.id];
     return (
       <button
@@ -263,9 +279,6 @@ export function StudentSetDetailPage() {
         <div className="challenge-card-foot">
           <span className="points-yellow">
             {pts} {t("points")}
-          </span>
-          <span className="small-text">
-            {solveN} {t("solves")}
           </span>
         </div>
         <div className={`first-blood-slot${fb ? " has-fb" : ""}`}>
@@ -504,6 +517,10 @@ export function StudentSetDetailPage() {
                   challengeSolved(active, submitted) ? (
                     <p className="muted" style={{ marginTop: 14 }}>
                       {t("challenge_complete")}
+                    </p>
+                  ) : deadlineLocked ? (
+                    <p className="muted" style={{ marginTop: 14 }}>
+                      {t("assignment_locked")}
                     </p>
                   ) : (
                     <form onSubmit={(e) => void submitFlag(e)} style={{ marginTop: 14 }}>

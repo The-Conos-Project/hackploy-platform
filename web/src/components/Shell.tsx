@@ -8,6 +8,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Swords,
   Trophy,
   UserRound,
   Users,
@@ -116,6 +117,7 @@ export function Shell({
   const adminNav: NavItem[] = [
     { key: "home", to: "/admin", label: t("nav_overview"), icon: <LayoutDashboard /> },
     { key: "labs", to: "/admin/labs", label: t("nav_challenges"), icon: <Workflow /> },
+    { key: "competitions", to: "/admin/competitions", label: t("nav_competitions"), icon: <Swords /> },
     { key: "leaderboard", to: "/admin/leaderboard", label: t("nav_leaderboard"), icon: <Trophy /> },
     { key: "users", to: "/admin/users", label: t("nav_users"), icon: <Users /> },
     { key: "profile", to: profileTo, label: userLabel, icon: <UserRound /> },
@@ -124,6 +126,7 @@ export function Shell({
 
   const studentNav: NavItem[] = [
     { key: "home", to: "/dashboard", label: t("nav_dashboard"), icon: <LayoutDashboard /> },
+    { key: "competitions", to: "/competitions", label: t("nav_competitions"), icon: <Swords /> },
     { key: "leaderboard", to: "/leaderboard", label: t("nav_leaderboard"), icon: <Trophy /> },
     { key: "profile", to: profileTo, label: userLabel, icon: <UserRound /> },
     { key: "settings", to: "/settings", label: t("nav_settings"), icon: <Settings /> },

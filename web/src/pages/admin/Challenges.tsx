@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ChevronDown, FileText, Hammer, Layers, Plus, Search, Trash2, X } from "lucide-react";
+import { ChevronDown, FileText, Hammer, Layers, Play, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Challenge } from "@/lib/api";
 import { listChallenges } from "@/lib/platform";
 import { groupBySet, setName } from "@/lib/challengeMeta";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
+import { AdminPracticeModal } from "@/components/AdminPracticeModal";
 
 export function AdminChallengesPage() {
   const { t } = useI18n();
@@ -20,6 +21,7 @@ export function AdminChallengesPage() {
   const [logChallengeId, setLogChallengeId] = useState<string | null>(null);
   const [logText, setLogText] = useState("");
   const [logBuilding, setLogBuilding] = useState(false);
+  const [practice, setPractice] = useState<Challenge | null>(null);
   const logEndRef = useRef<HTMLPreElement | null>(null);
   const pollRef = useRef<number | null>(null);
 
@@ -43,15 +45,16 @@ export function AdminChallengesPage() {
     logEndRef.current?.scrollTo({ top: logEndRef.current.scrollHeight });
   }, [logText]);
 
+  const liveQuery = queryDraft;
   const sets = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = liveQuery.trim().toLowerCase();
     const all = groupBySet(challenges);
     if (!q) return all;
     return all.filter(([name, labs]) => {
       const hay = `${name} ${labs.map((c) => `${c.display_name} ${c.name} ${c.description}`).join(" ")}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [challenges, query]);
+  }, [challenges, liveQuery]);
 
   const stopPoll = () => {
     if (pollRef.current) {
@@ -181,7 +184,10 @@ export function AdminChallengesPage() {
       <div className="page-toolbar assign-search">
         <input
           value={queryDraft}
-          onChange={(e) => setQueryDraft(e.target.value)}
+          onChange={(e) => {
+            setQueryDraft(e.target.value);
+            setQuery(e.target.value);
+          }}
           placeholder={t("search_labs")}
           onKeyDown={(e) => {
             if (e.key === "Enter") setQuery(queryDraft);
@@ -226,11 +232,23 @@ export function AdminChallengesPage() {
         </div>
       ) : null}
 
-      {sets.length === 0 ? (
-        <section className="empty-state card panel-fill">
-          <p className="muted" style={{ margin: 0 }}>
-            {t("no_challenges")}
-          </p>
+      {challenges.length === 0 ? (
+        <section className="card panel-fill">
+          <div className="tab-empty">
+            <Layers size={28} className="tab-empty-icon" aria-hidden />
+            <p className="muted" style={{ margin: 0 }}>
+              {t("no_challenges")}
+            </p>
+          </div>
+        </section>
+      ) : sets.length === 0 ? (
+        <section className="card panel-fill">
+          <div className="tab-empty">
+            <Search size={28} className="tab-empty-icon" aria-hidden />
+            <p className="muted" style={{ margin: 0 }}>
+              {t("no_search_matches")}
+            </p>
+          </div>
         </section>
       ) : (
         <div className="set-stack panel-fill">
@@ -297,12 +315,22 @@ export function AdminChallengesPage() {
                           <div className="small-text" style={{ marginTop: 6 }}>
                             {ch.description}
                           </div>
-                          <span
-                            className={`status-badge status-${ch.build_status === "ready" ? "success" : ch.build_status === "failed" ? "failed" : "building"}`}
-                            style={{ marginTop: 10 }}
-                          >
-                            {ch.build_status}
-                          </span>
+                          <div className="row" style={{ marginTop: 10, justifyContent: "space-between" }}>
+                            <span
+                              className={`status-badge status-${ch.build_status === "ready" ? "success" : ch.build_status === "failed" ? "failed" : "building"}`}
+                            >
+                              {ch.build_status}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-compact secondary"
+                              disabled={ch.build_status !== "ready"}
+                              title={t("start_lab")}
+                              onClick={() => setPractice(ch)}
+                            >
+                              <Play size={14} /> {t("start")}
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -313,6 +341,10 @@ export function AdminChallengesPage() {
           })}
         </div>
       )}
+
+      {practice ? (
+        <AdminPracticeModal challenge={practice} onClose={() => setPractice(null)} />
+      ) : null}
 
       {logSet ? (
         <div

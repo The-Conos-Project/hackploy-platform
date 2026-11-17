@@ -51,8 +51,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setLangState(next);
   }, []);
 
-  // UI copy is English-only for now (avoids mixed uz/en chrome).
-  const t = useCallback((key: MessageKey) => messages.en[key] ?? key, []);
+  const t = useCallback(
+    (key: MessageKey) => messages[lang][key] ?? messages.en[key] ?? key,
+    [lang],
+  );
 
   const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

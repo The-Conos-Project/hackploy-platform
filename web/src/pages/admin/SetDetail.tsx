@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ChevronRight, Trash2, X } from "lucide-react";
+import { ChevronRight, Play, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { type Challenge, type Group } from "@/lib/api";
+import { api, type Challenge, type Group } from "@/lib/api";
 import { assignLabs, getGroup, listChallenges } from "@/lib/platform";
 import {
   challengeDifficulty,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/challengeMeta";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
+import { AdminPracticeModal } from "@/components/AdminPracticeModal";
 
 export function AdminSetDetailPage() {
   const { id = "", setId = "" } = useParams();
@@ -23,10 +24,19 @@ export function AdminSetDetailPage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [practice, setPractice] = useState<Challenge | null>(null);
+  const [solvers, setSolvers] = useState<Record<string, { username: string; at: string }[]>>({});
+  const [bloods, setBloods] = useState<Record<string, string>>({});
 
   const load = async () => {
-    const [g, c] = await Promise.all([getGroup(id), listChallenges()]);
+    const [g, c, stats] = await Promise.all([
+      getGroup(id),
+      listChallenges(),
+      api.groupSetStats(id, setKey).catch(() => null),
+    ]);
     setGroup(g);
+    setSolvers(stats?.solvers ?? {});
+    setBloods(stats?.bloods ?? {});
     const map = new Map(c.map((ch) => [ch.id, ch]));
     const assigned = g.challenge_ids.map((cid) => map.get(cid)).filter(Boolean) as Challenge[];
     const match = groupBySet(assigned).find(([name]) => name === setKey);
@@ -159,15 +169,26 @@ export function AdminSetDetailPage() {
                           ) : null}
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="icon-action"
-                        title={t("unassign_challenge")}
-                        disabled={busy}
-                        onClick={() => void unassignChallenge(ch.id)}
-                      >
-                        <X size={14} />
-                      </button>
+                      <div className="icon-actions">
+                        <button
+                          type="button"
+                          className="icon-action"
+                          title={t("start_lab")}
+                          disabled={busy || ch.build_status !== "ready"}
+                          onClick={() => setPractice(ch)}
+                        >
+                          <Play size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-action"
+                          title={t("unassign_challenge")}
+                          disabled={busy}
+                          onClick={() => void unassignChallenge(ch.id)}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -176,6 +197,15 @@ export function AdminSetDetailPage() {
           </section>
         </>
       )}
+
+      {practice ? (
+        <AdminPracticeModal
+          challenge={practice}
+          solvers={solvers[practice.id] || []}
+          blood={bloods[practice.id]}
+          onClose={() => setPractice(null)}
+        />
+      ) : null}
     </Shell>
   );
 }

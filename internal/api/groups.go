@@ -223,6 +223,9 @@ func (s *Server) computeGroupChallengeStats(c *store.Class, setKey string) group
 
 	memberFlags := map[string]map[string]bool{}
 	for _, mid := range c.MemberIDs {
+		if isNonScoringSubject(mid) {
+			continue
+		}
 		insts, _ := s.store.ListInstancesByUser(mid)
 		gotFlags := map[string]bool{}
 		earliest := time.Time{}
@@ -314,6 +317,9 @@ func (s *Server) computeGroupChallengeStats(c *store.Class, setKey string) group
 
 	rows := make([]setBoardRow, 0, len(c.MemberIDs))
 	for _, mid := range c.MemberIDs {
+		if isNonScoringSubject(mid) {
+			continue
+		}
 		u := userMap[mid]
 		if u.ID == "" {
 			continue
@@ -357,6 +363,11 @@ func (s *Server) computeGroupChallengeStats(c *store.Class, setKey string) group
 
 func (s *Server) deleteGroup(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if list, err := s.store.ListAssignments(id); err == nil {
+		for _, a := range list {
+			_ = s.store.DeleteAssignment(a.ID)
+		}
+	}
 	if err := s.store.DeleteClass(id); err != nil {
 		writeErr(w, http.StatusInternalServerError, "delete failed")
 		return
@@ -489,6 +500,10 @@ func (s *Server) submitFlag(w http.ResponseWriter, r *http.Request) {
 	specs := parseFlagSpecs(ch.Flags)
 	if len(specs) == 0 {
 		writeErr(w, http.StatusBadRequest, "no flags configured")
+		return
+	}
+	if sess.Role != auth.RoleAdmin && s.assignmentDeadlineLocked(sess.Subject, ch.ID) {
+		writeErr(w, http.StatusForbidden, "deadline passed")
 		return
 	}
 
@@ -666,6 +681,9 @@ func (s *Server) leaderboard(w http.ResponseWriter, r *http.Request) {
 		}
 		scores := map[string]*leaderboardRow{}
 		for _, mid := range c.MemberIDs {
+			if isNonScoringSubject(mid) {
+				continue
+			}
 			u := userMap[mid]
 			if u.ID == "" {
 				continue
@@ -674,6 +692,9 @@ func (s *Server) leaderboard(w http.ResponseWriter, r *http.Request) {
 		}
 		// Score from all submitted flags (set labs share one instance across challenges).
 		for _, mid := range c.MemberIDs {
+			if isNonScoringSubject(mid) {
+				continue
+			}
 			insts, _ := s.store.ListInstancesByUser(mid)
 			gotFlags := map[string]bool{}
 			for _, inst := range insts {

@@ -19,6 +19,10 @@ type profileStats struct {
 
 func (s *Server) profilePayload(id, username, path, role string) map[string]any {
 	stats := s.computeProfileStats(id)
+	awards, _ := s.store.ListUserAwards(id)
+	if awards == nil {
+		awards = nil
+	}
 	return map[string]any{
 		"id":           id,
 		"username":     username,
@@ -27,6 +31,7 @@ func (s *Server) profilePayload(id, username, path, role string) map[string]any 
 		"points":       stats.Points,
 		"solved":       stats.Solved,
 		"first_bloods": stats.FirstBloods,
+		"awards":       awards,
 	}
 }
 
@@ -77,6 +82,9 @@ func (s *Server) computeProfileStats(userID string) profileStats {
 	}
 	first := map[string]blood{}
 	for _, inst := range everyone {
+		if isNonScoringSubject(inst.UserID) {
+			continue
+		}
 		var flags []string
 		_ = json.Unmarshal([]byte(inst.SubmittedFlags), &flags)
 		if len(flags) == 0 {

@@ -76,6 +76,20 @@ export function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {(profile.awards?.length ?? 0) > 0 ? (
+        <div style={{ marginTop: 18 }}>
+          <strong>{t("awards")}</strong>
+          <ul className="awards-list">
+            {profile.awards!.map((a) => (
+              <li key={a.id}>
+                <Trophy size={14} />
+                <span>{a.label || a.kind}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 

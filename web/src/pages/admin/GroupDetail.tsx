@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ChevronRight, Droplets, Layers, Plus, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
-import { api, type Challenge, type Group } from "@/lib/api";
-import { assignLabs, getGroup, listChallenges, listUsers } from "@/lib/platform";
-import { challengePoints, groupBySet } from "@/lib/challengeMeta";
+import { api, type Challenge, type Group, type GroupAssignment } from "@/lib/api";
+import { getGroup, listChallenges, listUsers } from "@/lib/platform";
+import { challengePoints } from "@/lib/challengeMeta";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 import { PageTabs } from "@/components/PageTabs";
-import { AssignLabsModal } from "@/components/AssignLabsModal";
+import { AssignLabsModal, type AssignmentDraft } from "@/components/AssignLabsModal";
 import { copyText } from "@/lib/clipboard";
 
 type BoardRow = {
@@ -24,9 +24,9 @@ export function AdminGroupDetailPage() {
   const { t } = useI18n();
   const [group, setGroup] = useState<Group | null>(null);
   const [allChallenges, setAllChallenges] = useState<Challenge[]>([]);
+  const [assignments, setAssignments] = useState<GroupAssignment[]>([]);
   const [users, setUsers] = useState<{ id: string; username: string; path: string }[]>([]);
   const [board, setBoard] = useState<BoardRow[]>([]);
-  const [picked, setPicked] = useState<string[]>([]);
   const [assignOpen, setAssignOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -34,17 +34,18 @@ export function AdminGroupDetailPage() {
   const [tab, setTab] = useState("assignments");
 
   const load = async () => {
-    const [g, c, u, stats] = await Promise.all([
+    const [g, c, u, stats, asg] = await Promise.all([
       getGroup(id),
       listChallenges().catch(() => [] as Challenge[]),
       listUsers().catch(() => [] as { id: string; username: string; path: string }[]),
       api.groupSetStats(id).catch(() => null),
+      api.listAssignments(id).catch(() => ({ assignments: [] as GroupAssignment[] })),
     ]);
     setGroup(g);
-    setPicked([...g.challenge_ids]);
     setAllChallenges(c);
     setUsers(u);
     setBoard(stats?.board ?? []);
+    setAssignments(asg.assignments ?? []);
   };
 
   useEffect(() => {
@@ -72,13 +73,6 @@ export function AdminGroupDetailPage() {
     return m;
   }, [allChallenges]);
 
-  const assigned = useMemo(
-    () => (group?.challenge_ids ?? []).map((cid) => challengeMap.get(cid)).filter(Boolean) as Challenge[],
-    [group, challengeMap],
-  );
-
-  const sets = useMemo(() => groupBySet(assigned), [assigned]);
-
   const members = useMemo(() => {
     if (!group) return [];
     const map = new Map(users.map((u) => [u.id, u]));
@@ -94,16 +88,18 @@ export function AdminGroupDetailPage() {
     [t],
   );
 
-  const persistIds = async (ids: string[]) => {
-    if (!group) return;
+  const onCreateAssignment = async (draft: AssignmentDraft) => {
     setBusy(true);
     try {
-      const g = await assignLabs(group.id, ids);
-      setGroup(g);
-      setPicked([...g.challenge_ids]);
+      await api.createAssignment(id, {
+        set_key: draft.set_key,
+        display_name: draft.display_name,
+        deadline_at: draft.deadline_at || undefined,
+        challenge_ids: draft.challenge_ids,
+      });
       toast.success(t("labs_assigned"));
-      const stats = await api.groupSetStats(id).catch(() => null);
-      setBoard(stats?.board ?? []);
+      setAssignOpen(false);
+      await load();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "save failed");
     } finally {
@@ -111,16 +107,17 @@ export function AdminGroupDetailPage() {
     }
   };
 
-  const onSaveAssign = async () => {
-    await persistIds(picked);
-    setAssignOpen(false);
-  };
-
-  const unassignSet = async (_setKey: string, items: Challenge[]) => {
-    if (!group) return;
-    const remove = new Set(items.map((c) => c.id));
-    const next = group.challenge_ids.filter((cid) => !remove.has(cid));
-    await persistIds(next);
+  const removeAssignment = async (aid: string) => {
+    setBusy(true);
+    try {
+      await api.deleteAssignment(id, aid);
+      toast.success(t("labs_assigned"));
+      await load();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "delete failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -177,10 +174,7 @@ export function AdminGroupDetailPage() {
               type="button"
               className="btn-compact"
               style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-              onClick={() => {
-                setPicked([...group.challenge_ids]);
-                setAssignOpen(true);
-              }}
+              onClick={() => setAssignOpen(true)}
             >
               <Plus size={16} /> {t("assign_new")}
             </button>
@@ -191,49 +185,51 @@ export function AdminGroupDetailPage() {
 
             {tab === "assignments" ? (
               <div className="tab-panel">
-                {sets.length === 0 ? (
-                  <div className="empty-assign">
+                {assignments.length === 0 ? (
+                  <div className="tab-empty">
+                    <Layers size={28} className="tab-empty-icon" aria-hidden />
                     <p className="muted" style={{ margin: 0 }}>
                       {t("no_assigned_labs")}
                     </p>
-                    <button
-                      type="button"
-                      className="secondary btn-compact"
-                      onClick={() => {
-                        setPicked([...group.challenge_ids]);
-                        setAssignOpen(true);
-                      }}
-                    >
-                      <Plus size={14} /> {t("assign_new")}
-                    </button>
                   </div>
                 ) : (
                   <div className="assign-list">
-                    {sets.map(([name, items]) => {
+                    {assignments.map((a) => {
+                      const items = a.challenge_ids
+                        .map((cid) => challengeMap.get(cid))
+                        .filter(Boolean) as Challenge[];
                       const points = items.reduce((s, ch) => s + challengePoints(ch.flags), 0);
+                      const setPath = a.set_key || a.display_name;
+                      const locked =
+                        a.deadline_at && new Date(a.deadline_at).getTime() < Date.now();
                       return (
-                        <div key={name} className="assign-row admin-assign-row">
+                        <div key={a.id} className="assign-row admin-assign-row">
                           <Link
-                            to={`/admin/groups/${group.id}/sets/${encodeURIComponent(name)}`}
+                            to={`/admin/groups/${group.id}/sets/${encodeURIComponent(setPath)}`}
                             className="assign-row-main"
                           >
                             <div className="assign-row-icon">
                               <Layers size={18} />
                             </div>
                             <div className="assign-row-body">
-                              <strong>{name}</strong>
+                              <strong>{a.display_name || a.set_key}</strong>
                               <div className="small-text">
                                 {items.length} {t("challenges_count")} · {points} {t("points")}
+                                {a.deadline_at
+                                  ? ` · ${new Date(a.deadline_at).toLocaleString()}`
+                                  : ""}
                               </div>
                             </div>
-                            <span className="assign-row-status">{t("open")}</span>
+                            <span className="assign-row-status">
+                              {locked ? t("assignment_locked") : t("open")}
+                            </span>
                           </Link>
                           <button
                             type="button"
                             className="btn-compact secondary assign-row-action"
                             disabled={busy}
                             title={t("unassign_set")}
-                            onClick={() => void unassignSet(name, items)}
+                            onClick={() => void removeAssignment(a.id)}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -254,7 +250,12 @@ export function AdminGroupDetailPage() {
                   </span>
                 </div>
                 {board.length === 0 ? (
-                  <p className="muted">{t("no_scores")}</p>
+                  <div className="tab-empty">
+                    <Droplets size={28} className="tab-empty-icon" aria-hidden />
+                    <p className="muted" style={{ margin: 0 }}>
+                      {t("no_scores")}
+                    </p>
+                  </div>
                 ) : (
                   <div className="set-board">
                     <div className="set-board-head">
@@ -288,7 +289,12 @@ export function AdminGroupDetailPage() {
             {tab === "members" ? (
               <div className="tab-panel">
                 {members.length === 0 ? (
-                  <p className="muted">{t("no_members")}</p>
+                  <div className="tab-empty">
+                    <UserRound size={28} className="tab-empty-icon" aria-hidden />
+                    <p className="muted" style={{ margin: 0 }}>
+                      {t("no_members")}
+                    </p>
+                  </div>
                 ) : (
                   <ul className="member-list">
                     {members.map((m) => (
@@ -314,10 +320,8 @@ export function AdminGroupDetailPage() {
             <AssignLabsModal
               title={`${t("assign_labs")} · ${group.name}`}
               challenges={allChallenges}
-              selected={picked}
-              onChange={setPicked}
               onClose={() => setAssignOpen(false)}
-              onSave={() => void onSaveAssign()}
+              onSave={(draft) => void onCreateAssignment(draft)}
               busy={busy}
             />
           ) : null}

@@ -95,6 +95,74 @@ func (s *Store) migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_instances_user ON instances(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_instances_challenge ON instances(challenge_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_instances_status ON instances(status)`,
+		`CREATE TABLE IF NOT EXISTS group_assignments (
+  id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL,
+  set_key TEXT NOT NULL DEFAULT '',
+  display_name TEXT NOT NULL DEFAULT '',
+  deadline_at TEXT,
+  challenge_ids TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL
+)`,
+		`CREATE INDEX IF NOT EXISTS idx_group_assignments_group ON group_assignments(group_id)`,
+		`CREATE TABLE IF NOT EXISTS competitions (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  join_code TEXT NOT NULL UNIQUE,
+  max_teams INTEGER NOT NULL DEFAULT 16,
+  join_closes_at TEXT,
+  starts_at TEXT,
+  ends_at TEXT,
+  duration_min INTEGER NOT NULL DEFAULT 120,
+  status TEXT NOT NULL DEFAULT 'draft',
+  created_at TEXT NOT NULL
+)`,
+		`CREATE TABLE IF NOT EXISTS competition_challenges (
+  competition_id TEXT NOT NULL,
+  challenge_id TEXT NOT NULL,
+  points INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (competition_id, challenge_id)
+)`,
+		`CREATE TABLE IF NOT EXISTS teams (
+  id TEXT PRIMARY KEY,
+  competition_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  join_code TEXT NOT NULL UNIQUE,
+  captain_user_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+)`,
+		`CREATE INDEX IF NOT EXISTS idx_teams_competition ON teams(competition_id)`,
+		`CREATE TABLE IF NOT EXISTS team_members (
+  team_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  PRIMARY KEY (team_id, user_id)
+)`,
+		`CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id)`,
+		`CREATE TABLE IF NOT EXISTS team_solves (
+  team_id TEXT NOT NULL,
+  challenge_id TEXT NOT NULL,
+  flag TEXT NOT NULL DEFAULT '',
+  solved_by TEXT NOT NULL,
+  solved_at TEXT NOT NULL,
+  PRIMARY KEY (team_id, challenge_id)
+)`,
+		`CREATE TABLE IF NOT EXISTS competition_events (
+  id TEXT PRIMARY KEY,
+  competition_id TEXT NOT NULL,
+  team_id TEXT NOT NULL,
+  points_total INTEGER NOT NULL DEFAULT 0,
+  at TEXT NOT NULL
+)`,
+		`CREATE INDEX IF NOT EXISTS idx_competition_events_comp ON competition_events(competition_id)`,
+		`CREATE TABLE IF NOT EXISTS competition_awards (
+  id TEXT PRIMARY KEY,
+  competition_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  label TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+)`,
+		`CREATE INDEX IF NOT EXISTS idx_competition_awards_user ON competition_awards(user_id)`,
 	}
 	for _, q := range stmts {
 		if _, err := s.db.Exec(q); err != nil {

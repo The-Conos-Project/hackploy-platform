@@ -44,10 +44,13 @@ export function AdminUsersPage() {
       {loading ? (
         <p className="muted">{t("loading")}</p>
       ) : users.length === 0 ? (
-        <section className="empty-state card panel-fill">
-          <p className="muted" style={{ margin: 0 }}>
-            {t("no_users")}
-          </p>
+        <section className="card panel-fill">
+          <div className="tab-empty">
+            <UserRound size={28} className="tab-empty-icon" aria-hidden />
+            <p className="muted" style={{ margin: 0 }}>
+              {t("no_users")}
+            </p>
+          </div>
         </section>
       ) : (
         <div className="tile-panel panel-fill">
