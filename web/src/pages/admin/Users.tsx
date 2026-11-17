@@ -6,7 +6,7 @@ import { listUsers } from "@/lib/platform";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 
-type Row = { id: string; username: string; handle?: string; path: string; role?: string };
+type Row = { id: string; username: string; path: string; role?: string };
 
 export function AdminUsersPage() {
   const { t } = useI18n();
@@ -53,15 +53,13 @@ export function AdminUsersPage() {
         <div className="tile-panel panel-fill">
           <div className="tile-grid">
             {users.map((u) => (
-              <Link key={u.id} to={u.path || `/u/${u.id}`} className="tile-card tile-link">
+              <Link key={u.id} to={u.path || `/u/${u.username}`} className="tile-card tile-link">
                 <div className="row" style={{ marginBottom: 8 }}>
                   <UserRound size={18} />
                   <strong>{u.username}</strong>
                 </div>
-                <div className="small-text font-mono">{u.id}</div>
                 <div className="tile-meta" style={{ marginTop: 10 }}>
                   <span>{u.role === "admin" ? t("role_admin") : t("role_student")}</span>
-                  {u.handle ? <span>@{u.handle}</span> : null}
                 </div>
               </Link>
             ))}

@@ -101,12 +101,13 @@ func (s *Store) migrate() error {
 			return fmt.Errorf("migrate: %w\nquery: %s", err, q)
 		}
 	}
-	// Additive column upgrades (no wipe) for older DBs
+	// Additive column upgrades (no wipe) for older DBs.
+	// handle column may still exist on old DBs but is unused — username is the public id.
 	if err := s.ensureColumn("users", "handle", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
-	if _, err := s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_handle ON users(handle) WHERE handle != ''`); err != nil {
-		return fmt.Errorf("migrate handle index: %w", err)
+	if _, err := s.db.Exec(`UPDATE users SET handle = '' WHERE handle != ''`); err != nil {
+		return fmt.Errorf("clear legacy handles: %w", err)
 	}
 	if err := s.ensureColumn("challenges", "source_path", "TEXT"); err != nil {
 		return err

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/lib/auth";
 import { Shell } from "@/components/Shell";
+import { GroupTile } from "@/components/GroupTile";
 import {
   challengePoints,
   formatTimerMMSS,
@@ -46,7 +47,7 @@ export function StudentDashboardPage() {
       api.listGroups(),
       api.listChallenges(),
       api.listLabs(),
-      user ? api.getProfile(user.handle || user.id).catch(() => null) : Promise.resolve(null),
+      user ? api.getProfile(user.username || user.id).catch(() => null) : Promise.resolve(null),
     ])
       .then(([g, c, l, p]) => {
         setGroups(g.groups ?? []);
@@ -70,16 +71,6 @@ export function StudentDashboardPage() {
 
   const submittedByTag = useMemo(() => {
     const map = new Map<string, string[]>();
-    for (const lab of labs) {
-      if (lab.status !== "running" && !lab.submitted_flags) continue;
-      const ch = challengeMap.get(lab.challenge_id);
-      const tag = lab.image_tag || ch?.image_tag;
-      if (!tag) continue;
-      const flags = parseSubmittedFlags(lab.submitted_flags);
-      const prev = map.get(tag) ?? [];
-      map.set(tag, [...new Set([...prev, ...flags])]);
-    }
-    // Also merge stopped labs' submitted flags for progress.
     for (const lab of labs) {
       const ch = challengeMap.get(lab.challenge_id);
       const tag = lab.image_tag || ch?.image_tag;
@@ -145,9 +136,6 @@ export function StudentDashboardPage() {
             {active.length} {t("dash_sets_live")}
           </p>
         </div>
-        <Link to="/groups" className="btn-compact secondary">
-          {t("join_group")}
-        </Link>
       </div>
 
       <div className="dash-stats">
@@ -186,7 +174,7 @@ export function StudentDashboardPage() {
       </div>
 
       {groups.length === 0 ? (
-        <section className="empty-state card panel-fill">
+        <section className="empty-state card">
           <p className="muted" style={{ margin: 0 }}>
             {t("join_group_hint")}
           </p>
@@ -195,13 +183,13 @@ export function StudentDashboardPage() {
           </Link>
         </section>
       ) : active.length === 0 ? (
-        <section className="empty-state card panel-fill">
+        <section className="empty-state card">
           <p className="muted" style={{ margin: 0 }}>
             {t("no_assigned_labs")}
           </p>
         </section>
       ) : (
-        <div className="tile-panel panel-fill">
+        <div className="tile-panel">
           <div className="tile-grid dash-set-grid">
             {active.map((item) => {
               const pct = item.total ? Math.round((item.solved / item.total) * 100) : 0;
@@ -233,6 +221,29 @@ export function StudentDashboardPage() {
                 </Link>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      <div className="dash-section-head" style={{ marginTop: 22 }}>
+        <h2>{t("nav_my_classes")}</h2>
+        <Link to="/groups" className="small-text">
+          {t("all_groups")}
+        </Link>
+      </div>
+
+      {groups.length === 0 ? (
+        <section className="empty-state card panel-fill">
+          <p className="muted" style={{ margin: 0 }}>
+            {t("no_groups")}
+          </p>
+        </section>
+      ) : (
+        <div className="tile-panel panel-fill">
+          <div className="tile-grid">
+            {groups.map((g) => (
+              <GroupTile key={g.id} group={g} to={`/groups/${g.id}`} />
+            ))}
           </div>
         </div>
       )}

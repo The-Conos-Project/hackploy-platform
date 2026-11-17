@@ -1645,9 +1645,280 @@ button.secondary:hover {
 }
 
 .challenge-tile {
+  position: relative;
   text-align: left;
   cursor: pointer;
   width: 100%;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  min-height: 148px;
+  padding-top: 16px;
+}
+
+.solved-badge-corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  transform: translate(35%, -45%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, #34d399 45%, var(--border));
+  background: color-mix(in oklab, #052e1a 70%, var(--card));
+  color: #86efac;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+
+.first-blood-slot {
+  min-height: 28px;
+  margin-top: 10px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.first-blood-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, #ef4444 50%, var(--border));
+  background: color-mix(in oklab, #7f1d1d 55%, var(--card));
+  color: #fecaca;
+  font-size: 11px;
+  font-weight: 650;
+  max-width: 100%;
+}
+
+.first-blood-chip strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+.first-blood-banner-chip {
+  margin: 0 0 12px;
+  font-size: 12px;
+}
+
+.page-tabs.tabs-equal {
+  margin: 0 0 14px;
+  position: relative;
+}
+
+.page-tabs.tabs-equal::after {
+  display: none;
+}
+
+.page-tabs.tabs-equal .page-tabs-scroller {
+  width: 100%;
+  max-width: 100%;
+  gap: 0;
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.page-tabs.tabs-equal .page-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: center;
+  border-radius: 0;
+}
+
+.page-tabs.tabs-equal .page-tab + .page-tab {
+  border-left: 1px solid var(--border);
+}
+
+.page-tabs.tabs-equal .page-tab.is-first {
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+
+.page-tabs.tabs-equal .page-tab.is-last {
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.modal-tab-body {
+  margin-top: 4px;
+}
+
+.lab-machine-card {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 55%, var(--card));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lab-machine-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lab-machine-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.lab-machine-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.lab-machine-status.is-running {
+  color: #60a5fa;
+}
+
+.lab-machine-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.lab-machine-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #fbbf24;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.lab-machine-timer.is-urgent,
+.machines-fab-timer.is-urgent {
+  color: #f87171;
+}
+
+.lab-machine-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.lab-machine-actions .btn-compact {
+  width: 100%;
+  justify-content: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+button.btn-compact.danger,
+.btn-compact.danger {
+  background: color-mix(in oklab, #dc2626 82%, #7f1d1d);
+  color: #fff;
+  border: 1px solid color-mix(in oklab, #f87171 40%, transparent);
+}
+
+button.btn-compact.danger:hover,
+.btn-compact.danger:hover {
+  filter: brightness(1.06);
+}
+
+.connect-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, #2dd4bf 35%, var(--border));
+  background: color-mix(in oklab, #042f2e 45%, var(--card));
+}
+
+.connect-panel-label {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+
+.connect-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.connect-inline .connect-label {
+  flex: 0 0 auto;
+  min-width: 52px;
+  color: #5eead4;
+}
+
+.connect-inline .connect-value {
+  flex: 1;
+  min-width: 0;
+  color: #99f6e4;
+  font-weight: 650;
+}
+
+.machines-fab-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.machines-fab-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.machines-fab-timer {
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.machines-fab-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.machines-fab-actions .btn-compact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.admin-set-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.admin-set-block + .admin-set-block {
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.admin-challenge-tile {
+  min-height: 0;
 }
 
 .challenge-tile .status-icon {
@@ -1765,9 +2036,16 @@ button.secondary:hover {
 
 .machines-fab-list li {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.machines-fab-list li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .machines-fab-name {
@@ -1816,6 +2094,20 @@ button.secondary:hover {
   max-width: 720px;
   width: 100%;
   margin-inline: auto;
+}
+
+.settings-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.settings-page .page-head,
+.settings-page .settings-card {
+  width: 100%;
+  max-width: 720px;
 }
 
 .settings-card {
@@ -1923,12 +2215,6 @@ button.secondary:hover {
   color: var(--foreground);
   letter-spacing: -0.03em;
   line-height: 1.1;
-}
-
-.profile-handle-form {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
 }
 
 @media (max-width: 640px) {
@@ -2213,6 +2499,7 @@ button.secondary:hover {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  overflow: visible;
 }
 
 .tile-card {

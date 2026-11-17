@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CheckCircle2, ChevronRight, Copy, Droplets, Play, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, Copy, Droplets, Play, RefreshCw, Square, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Challenge, type Group, type LabInstance } from "@/lib/api";
 import { getGroup, listChallenges } from "@/lib/platform";
@@ -107,7 +107,6 @@ export function StudentSetDetailPage() {
   const submitted = useMemo(() => {
     const fromRunning = parseSubmittedFlags(runningSet?.submitted_flags);
     if (fromRunning.length) return fromRunning;
-    // Merge any lab rows for this set's image
     const tags = new Set(labs.map((ch) => ch.image_tag));
     const all: string[] = [];
     for (const lab of running) {
@@ -158,9 +157,25 @@ export function StudentSetDetailPage() {
     setBusy(true);
     try {
       await api.stopLab(runningSet.id);
+      toast.success(t("lab_stopped"));
       await load();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "stop failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resetSet = async () => {
+    if (!runningSet || labs.length === 0) return;
+    setBusy(true);
+    try {
+      await api.stopLab(runningSet.id);
+      await api.startLab(labs[0].id);
+      toast.success(t("lab_reset"));
+      await load();
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "reset failed");
     } finally {
       setBusy(false);
     }
@@ -213,7 +228,7 @@ export function StudentSetDetailPage() {
       { id: "details", label: t("tab_details") },
       {
         id: "solvers",
-        label: `${t("tab_solvers")}${active ? ` (${solves[active.id] || 0})` : ""}`,
+        label: `${t("tab_solvers")} (${active ? solves[active.id] || 0 : 0})`,
       },
     ],
     [t, active, solves],
@@ -224,6 +239,7 @@ export function StudentSetDetailPage() {
     const done = challengeSolved(ch, submitted);
     const diff = challengeDifficulty(ch);
     const solveN = solves[ch.id] || 0;
+    const fb = bloods[ch.id];
     return (
       <button
         key={ch.id}
@@ -235,13 +251,13 @@ export function StudentSetDetailPage() {
           setActiveId(ch.id);
         }}
       >
+        {done ? (
+          <span className="solved-badge-corner">
+            <CheckCircle2 size={12} /> {t("status_solved")}
+          </span>
+        ) : null}
         <div className="challenge-card-top">
           {diff ? <span className={`diff-pill diff-${diff.toLowerCase()}`}>{diff}</span> : <span />}
-          {done ? (
-            <span className="solved-pill">
-              <CheckCircle2 size={12} /> {t("status_solved")}
-            </span>
-          ) : null}
         </div>
         <strong className="challenge-card-title">{ch.display_name || ch.name}</strong>
         <div className="challenge-card-foot">
@@ -252,14 +268,16 @@ export function StudentSetDetailPage() {
             {solveN} {t("solves")}
           </span>
         </div>
-        {bloods[ch.id] ? (
-          <div className="first-blood-line">
-            <Droplets size={12} />
-            <span>
-              {t("first_blood")}: <strong>{bloods[ch.id]}</strong>
-            </span>
-          </div>
-        ) : null}
+        <div className={`first-blood-slot${fb ? " has-fb" : ""}`}>
+          {fb ? (
+            <div className="first-blood-chip">
+              <Droplets size={12} />
+              <span>
+                {t("first_blood")}: <strong>{fb}</strong>
+              </span>
+            </div>
+          ) : null}
+        </div>
       </button>
     );
   };
@@ -353,11 +371,6 @@ export function StudentSetDetailPage() {
                         <span className="font-mono">{i + 1}</span>
                         <span>
                           <strong>{row.username}</strong>
-                          {bloods && Object.values(bloods).includes(row.username) ? (
-                            <span className="fb-tag">
-                              <Droplets size={10} /> {t("first_blood")}
-                            </span>
-                          ) : null}
                         </span>
                         <span className="font-mono">{row.solved}</span>
                         <span className="font-mono">{row.first_bloods}</span>
@@ -397,12 +410,12 @@ export function StudentSetDetailPage() {
               </button>
             </div>
 
-            <h3 style={{ margin: "0 0 10px" }}>{active.display_name || active.name}</h3>
+            <h3 style={{ margin: "0 0 12px" }}>{active.display_name || active.name}</h3>
 
-            <PageTabs tabs={modalTabs} active={modalTab} onChange={setModalTab} />
+            <PageTabs equal tabs={modalTabs} active={modalTab} onChange={setModalTab} />
 
             {modalTab === "solvers" ? (
-              <div className="tab-panel" style={{ paddingTop: 12 }}>
+              <div className="modal-tab-body">
                 {(solvers[active.id] || []).length === 0 ? (
                   <p className="muted">{t("no_solvers")}</p>
                 ) : (
@@ -417,19 +430,13 @@ export function StudentSetDetailPage() {
                 )}
               </div>
             ) : (
-              <div className="tab-panel" style={{ paddingTop: 12 }}>
+              <div className="modal-tab-body">
                 {bloods[active.id] ? (
-                  <div className="first-blood-banner">
+                  <div className="first-blood-chip first-blood-banner-chip">
                     <Droplets size={14} />
                     <span>
                       {t("first_blood")}: <strong>{bloods[active.id]}</strong>
                     </span>
-                  </div>
-                ) : null}
-
-                {runningSet ? (
-                  <div className={`set-timer-live is-modal font-mono${leftSec <= 300 ? " is-urgent" : ""}`}>
-                    {formatTimerMMSS(leftSec)}
                   </div>
                 ) : null}
 
@@ -446,49 +453,63 @@ export function StudentSetDetailPage() {
                   </div>
                 ) : null}
 
-                <div className="lab-start-box">
-                  <div>
-                    <strong>{t("challenge_lab")}</strong>
-                    <div className="small-text">
-                      {(solves[active.id] || 0)} {t("solves")}
+                <div className="lab-machine-card">
+                  <div className="lab-machine-head">
+                    <div>
+                      <div className="lab-machine-title-row">
+                        <strong>{t("challenge_lab")}</strong>
+                        <span className="small-text">{t("desktop_recommended")}</span>
+                      </div>
+                      <div className={`lab-machine-status${runningSet ? " is-running" : ""}`}>
+                        <span className="lab-machine-dot" aria-hidden />
+                        {runningSet ? t("status_running") : t("status_stopped")}
+                      </div>
                     </div>
+                    {runningSet ? (
+                      <div className={`lab-machine-timer font-mono${leftSec <= 300 ? " is-urgent" : ""}`}>
+                        {formatTimerMMSS(leftSec)}
+                      </div>
+                    ) : null}
                   </div>
+
                   {!runningSet ? (
                     <button type="button" className="btn-compact" disabled={busy || !ready} onClick={() => void startSet()}>
                       <Play size={14} /> {t("start_lab")}
                     </button>
                   ) : (
-                    <button type="button" className="btn-compact secondary" disabled={busy} onClick={() => void stopSet()}>
-                      {t("stop_lab")}
-                    </button>
-                  )}
-                </div>
-
-                {runningSet && connect.length > 0 ? (
-                  <div className="connect-fields">
-                    <div className="small-text" style={{ marginBottom: 8 }}>
-                      {t("connection")}
-                    </div>
-                    {connect.map((field) => (
-                      <div key={field.id} className="connect-row">
-                        <div className="connect-row-main">
-                          <span className="connect-label">
-                            {field.id === "password" ? t("password") : field.label}
-                          </span>
-                          <code className="font-mono connect-value">{field.value}</code>
+                    <>
+                      {connect.length > 0 ? (
+                        <div className="connect-panel">
+                          <div className="small-text connect-panel-label">{t("connection")}</div>
+                          {connect.map((field) => (
+                            <div key={field.id} className="connect-inline">
+                              <span className="connect-label">
+                                {field.id === "password" ? t("password") : field.label}
+                              </span>
+                              <code className="font-mono connect-value">{field.value}</code>
+                              <button
+                                type="button"
+                                className="icon-action"
+                                title={t("copy")}
+                                onClick={() => void onCopy(field.copyValue ?? field.value)}
+                              >
+                                <Copy size={14} />
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                        <button
-                          type="button"
-                          className="icon-action"
-                          title={t("copy")}
-                          onClick={() => void onCopy(field.copyValue ?? field.value)}
-                        >
-                          <Copy size={14} />
+                      ) : null}
+                      <div className="lab-machine-actions">
+                        <button type="button" className="btn-compact secondary" disabled={busy} onClick={() => void resetSet()}>
+                          <RefreshCw size={14} /> {t("reset_lab")}
+                        </button>
+                        <button type="button" className="btn-compact danger" disabled={busy} onClick={() => void stopSet()}>
+                          <Square size={14} /> {t("stop_destroy")}
                         </button>
                       </div>
-                    ))}
-                  </div>
-                ) : null}
+                    </>
+                  )}
+                </div>
 
                 {runningSet ? (
                   challengeSolved(active, submitted) ? (

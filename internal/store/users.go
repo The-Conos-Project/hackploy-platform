@@ -13,14 +13,13 @@ const MaxUsers = 9999
 type User struct {
 	ID           string    `json:"id"`
 	Username     string    `json:"username"`
-	Handle       string    `json:"handle,omitempty"`
 	PasswordHash string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
 func (u User) ProfilePath() string {
-	if u.Handle != "" {
-		return "/u/" + u.Handle
+	if u.Username != "" {
+		return "/u/" + u.Username
 	}
 	return "/u/" + u.ID
 }
@@ -57,7 +56,7 @@ func (s *Store) CreateUser(id, username, passwordHash string) (*User, error) {
 
 func (s *Store) GetUserByUsername(username string) (*User, error) {
 	row := s.db.QueryRow(
-		`SELECT id, username, COALESCE(handle, ''), password_hash, created_at FROM users WHERE username = ? COLLATE NOCASE`,
+		`SELECT id, username, password_hash, created_at FROM users WHERE username = ? COLLATE NOCASE`,
 		username,
 	)
 	return scanUser(row)
@@ -65,40 +64,24 @@ func (s *Store) GetUserByUsername(username string) (*User, error) {
 
 func (s *Store) GetUserByID(id string) (*User, error) {
 	row := s.db.QueryRow(
-		`SELECT id, username, COALESCE(handle, ''), password_hash, created_at FROM users WHERE id = ?`,
+		`SELECT id, username, password_hash, created_at FROM users WHERE id = ?`,
 		id,
 	)
 	return scanUser(row)
 }
 
-func (s *Store) GetUserByHandle(handle string) (*User, error) {
-	handle = strings.TrimSpace(handle)
-	if handle == "" {
-		return nil, nil
-	}
-	row := s.db.QueryRow(
-		`SELECT id, username, COALESCE(handle, ''), password_hash, created_at FROM users WHERE handle = ? COLLATE NOCASE`,
-		handle,
-	)
-	return scanUser(row)
-}
-
+// GetUserByProfileSlug resolves /u/:slug by username (public identity).
+// Falls back to internal id for old bookmarks.
 func (s *Store) GetUserByProfileSlug(slug string) (*User, error) {
 	slug = strings.TrimSpace(slug)
 	if slug == "" {
 		return nil, nil
 	}
-	u, err := s.GetUserByHandle(slug)
+	u, err := s.GetUserByUsername(slug)
 	if err != nil || u != nil {
 		return u, err
 	}
 	return s.GetUserByID(slug)
-}
-
-func (s *Store) UpdateUserHandle(id, handle string) error {
-	handle = strings.ToLower(strings.TrimSpace(handle))
-	_, err := s.db.Exec(`UPDATE users SET handle = ? WHERE id = ?`, handle, id)
-	return err
 }
 
 func (s *Store) UpdateUserPassword(id, passwordHash string) error {
@@ -107,7 +90,7 @@ func (s *Store) UpdateUserPassword(id, passwordHash string) error {
 }
 
 func (s *Store) ListUsers() ([]User, error) {
-	rows, err := s.db.Query(`SELECT id, username, COALESCE(handle, ''), password_hash, created_at FROM users ORDER BY username`)
+	rows, err := s.db.Query(`SELECT id, username, password_hash, created_at FROM users ORDER BY username`)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +109,7 @@ func (s *Store) ListUsers() ([]User, error) {
 func scanUser(row *sql.Row) (*User, error) {
 	var u User
 	var created string
-	err := row.Scan(&u.ID, &u.Username, &u.Handle, &u.PasswordHash, &created)
+	err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &created)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -140,7 +123,7 @@ func scanUser(row *sql.Row) (*User, error) {
 func scanUserRow(rows *sql.Rows) (*User, error) {
 	var u User
 	var created string
-	if err := rows.Scan(&u.ID, &u.Username, &u.Handle, &u.PasswordHash, &created); err != nil {
+	if err := rows.Scan(&u.ID, &u.Username, &u.PasswordHash, &created); err != nil {
 		return nil, err
 	}
 	u.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)

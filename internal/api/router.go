@@ -81,7 +81,6 @@ func NewRouter(cfg config.Config, st *store.Store) http.Handler {
 		})
 
 		api.Get("/u/{slug}", s.getProfile)
-		api.With(s.requireSession).Patch("/me/profile", s.updateMyProfile)
 
 		api.Route("/challenges", func(cr chi.Router) {
 			cr.With(s.requireSession).Get("/", s.listChallenges)

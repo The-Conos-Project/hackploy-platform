@@ -146,7 +146,6 @@ func (s *Server) groupMembers(w http.ResponseWriter, r *http.Request) {
 		members = append(members, map[string]any{
 			"id":       u.ID,
 			"username": u.Username,
-			"handle":   u.Handle,
 			"path":     u.ProfilePath(),
 		})
 	}

@@ -109,7 +109,7 @@ export function Shell({
 
   const closeMobile = () => setMobileOpen(false);
 
-  const profileTo = user?.path || `/u/${user?.id || ""}`;
+  const profileTo = user?.path || `/u/${user?.username || user?.id || ""}`;
 
   const userLabel = user?.username || t("nav_profile");
 

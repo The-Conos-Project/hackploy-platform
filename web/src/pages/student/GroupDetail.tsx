@@ -16,7 +16,7 @@ import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 import { PageTabs } from "@/components/PageTabs";
 
-type Member = { id: string; username: string; handle?: string; path: string };
+type Member = { id: string; username: string; path: string };
 type BoardRow = {
   user_id: string;
   username: string;
@@ -236,7 +236,6 @@ export function StudentGroupDetailPage() {
                           </span>
                           <span>
                             <strong>{m.username}</strong>
-                            {m.handle ? <span className="small-text"> @{m.handle}</span> : null}
                           </span>
                         </Link>
                       </li>

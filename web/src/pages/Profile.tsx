@@ -47,8 +47,8 @@ export function ProfilePage() {
             <span className={`role-pill role-${profileRole}`}>{roleLabel}</span>
           </div>
           <div className="profile-id-row">
-            <span className="small-text">{t("public_id")}</span>
-            <code className="font-mono profile-id-value">{profile.id}</code>
+            <span className="small-text">{t("username")}</span>
+            <code className="font-mono profile-id-value">{profile.username}</code>
           </div>
         </div>
       </div>

@@ -15,7 +15,6 @@ export type SessionUser = {
   id: string;
   username: string;
   role: "student" | "admin";
-  handle?: string;
   path?: string;
   expires?: string;
 };
@@ -23,7 +22,6 @@ export type SessionUser = {
 export type PublicProfile = {
   id: string;
   username: string;
-  handle?: string;
   path: string;
   role?: "admin" | "student";
   points?: number;
@@ -150,11 +148,6 @@ export const api = {
     }),
   getProfile: (slug: string) =>
     request<PublicProfile>(`/api/v1/u/${encodeURIComponent(slug)}`),
-  updateProfile: (handle: string) =>
-    request<PublicProfile>("/api/v1/me/profile", {
-      method: "PATCH",
-      body: JSON.stringify({ handle }),
-    }),
   listChallenges: () =>
     request<{ challenges: Challenge[] }>("/api/v1/challenges/"),
   importUpload: (file: File) => {
@@ -211,7 +204,7 @@ export const api = {
     }),
   listUsers: () =>
     request<{
-      users: { id: string; username: string; handle?: string; path: string; role?: string }[];
+      users: { id: string; username: string; path: string; role?: string }[];
     }>("/api/v1/users/"),
   listGroups: () => request<{ groups: Group[] }>("/api/v1/groups/"),
   createGroup: (name: string) =>
@@ -240,7 +233,7 @@ export const api = {
     ),
   groupMembers: (id: string) =>
     request<{
-      members: { id: string; username: string; handle?: string; path: string }[];
+      members: { id: string; username: string; path: string }[];
       count: number;
     }>(`/api/v1/groups/${id}/members`),
   deleteGroup: (id: string) =>

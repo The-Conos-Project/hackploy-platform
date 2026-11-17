@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -12,20 +11,17 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-var handleRe = regexp.MustCompile(`^[a-z0-9_]{3,24}$`)
-
 type profileStats struct {
 	Points      int `json:"points"`
 	Solved      int `json:"solved"`
 	FirstBloods int `json:"first_bloods"`
 }
 
-func (s *Server) profilePayload(id, username, handle, path, role string) map[string]any {
+func (s *Server) profilePayload(id, username, path, role string) map[string]any {
 	stats := s.computeProfileStats(id)
 	return map[string]any{
 		"id":           id,
 		"username":     username,
-		"handle":       handle,
 		"path":         path,
 		"role":         role,
 		"points":       stats.Points,
@@ -79,7 +75,7 @@ func (s *Server) computeProfileStats(userID string) profileStats {
 		userID string
 		at     time.Time
 	}
-	first := map[string]blood{} // flag -> earliest (set labs share flags across challenges)
+	first := map[string]blood{}
 	for _, inst := range everyone {
 		var flags []string
 		_ = json.Unmarshal([]byte(inst.SubmittedFlags), &flags)
@@ -104,7 +100,7 @@ func (s *Server) computeProfileStats(userID string) profileStats {
 func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	if strings.EqualFold(slug, "root") || strings.EqualFold(slug, "admin") {
-		writeJSON(w, http.StatusOK, s.profilePayload("root", "root", "", "/u/root", "admin"))
+		writeJSON(w, http.StatusOK, s.profilePayload("root", "root", "/u/root", "admin"))
 		return
 	}
 	u, err := s.store.GetUserByProfileSlug(slug)
@@ -116,62 +112,7 @@ func (s *Server) getProfile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, s.profilePayload(u.ID, u.Username, u.Handle, u.ProfilePath(), "student"))
-}
-
-func (s *Server) updateMyProfile(w http.ResponseWriter, r *http.Request) {
-	sess := sessionFrom(r)
-	if sess.Role == auth.RoleAdmin && sess.Subject == "root" {
-		writeErr(w, http.StatusBadRequest, "platform admin profile has a fixed id")
-		return
-	}
-	var body struct {
-		Handle string `json:"handle"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid json")
-		return
-	}
-	handle := strings.ToLower(strings.TrimSpace(body.Handle))
-	if handle != "" {
-		if !handleRe.MatchString(handle) {
-			writeErr(w, http.StatusBadRequest, "handle must be 3-24 chars: a-z, 0-9, underscore")
-			return
-		}
-		if handle == "root" || handle == "admin" {
-			writeErr(w, http.StatusBadRequest, "handle reserved")
-			return
-		}
-		existing, err := s.store.GetUserByHandle(handle)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "store error")
-			return
-		}
-		if existing != nil && existing.ID != sess.Subject {
-			writeErr(w, http.StatusConflict, "handle taken")
-			return
-		}
-		// also block colliding with another user's public id
-		byID, err := s.store.GetUserByID(handle)
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "store error")
-			return
-		}
-		if byID != nil && byID.ID != sess.Subject {
-			writeErr(w, http.StatusConflict, "handle taken")
-			return
-		}
-	}
-	if err := s.store.UpdateUserHandle(sess.Subject, handle); err != nil {
-		writeErr(w, http.StatusConflict, "handle taken")
-		return
-	}
-	u, err := s.store.GetUserByID(sess.Subject)
-	if err != nil || u == nil {
-		writeErr(w, http.StatusInternalServerError, "store error")
-		return
-	}
-	writeJSON(w, http.StatusOK, s.profilePayload(u.ID, u.Username, u.Handle, u.ProfilePath(), "student"))
+	writeJSON(w, http.StatusOK, s.profilePayload(u.ID, u.Username, u.ProfilePath(), "student"))
 }
 
 func (h *authHandlers) changePassword(w http.ResponseWriter, r *http.Request) {

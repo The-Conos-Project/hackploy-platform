@@ -14,7 +14,6 @@ func (s *Server) listUsers(w http.ResponseWriter, _ *http.Request) {
 	out = append(out, map[string]any{
 		"id":       "root",
 		"username": "root",
-		"handle":   "",
 		"path":     "/u/root",
 		"role":     "admin",
 	})
@@ -22,7 +21,6 @@ func (s *Server) listUsers(w http.ResponseWriter, _ *http.Request) {
 		out = append(out, map[string]any{
 			"id":       u.ID,
 			"username": u.Username,
-			"handle":   u.Handle,
 			"path":     u.ProfilePath(),
 			"role":     "student",
 		})

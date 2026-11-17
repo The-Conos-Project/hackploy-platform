@@ -36,7 +36,7 @@ func (h *authHandlers) register(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "username must be 3-32 chars: letters, numbers, underscore")
 		return
 	}
-	if strings.EqualFold(username, "root") {
+	if strings.EqualFold(username, "root") || strings.EqualFold(username, "admin") {
 		writeErr(w, http.StatusBadRequest, "username reserved")
 		return
 	}
@@ -100,7 +100,6 @@ func (h *authHandlers) register(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"id":       user.ID,
 		"username": user.Username,
-		"handle":   user.Handle,
 		"path":     user.ProfilePath(),
 		"role":     auth.RoleStudent,
 	})
@@ -130,7 +129,6 @@ func (h *authHandlers) login(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":       user.ID,
 		"username": user.Username,
-		"handle":   user.Handle,
 		"path":     user.ProfilePath(),
 		"role":     auth.RoleStudent,
 	})
@@ -179,7 +177,6 @@ func (h *authHandlers) me(w http.ResponseWriter, r *http.Request) {
 	if sess.Role == auth.RoleAdmin {
 		out["path"] = "/u/root"
 	} else if u, err := h.store.GetUserByID(sess.Subject); err == nil && u != nil {
-		out["handle"] = u.Handle
 		out["path"] = u.ProfilePath()
 	}
 	writeJSON(w, http.StatusOK, out)

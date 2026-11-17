@@ -37,7 +37,7 @@ export async function assignLabs(id: string, challengeIds: string[]): Promise<Gr
 }
 
 export async function listUsers(): Promise<
-  { id: string; username: string; handle?: string; path: string; role?: string }[]
+  { id: string; username: string; path: string; role?: string }[]
 > {
   const res = await api.listUsers();
   return res.users ?? [];

@@ -5,14 +5,17 @@ export function PageTabs({
   active,
   onChange,
   label,
+  equal,
 }: {
   tabs: Tab[];
   active: string;
   onChange: (id: string) => void;
   label?: string;
+  /** Equal-width segmented tabs (e.g. under a modal title). */
+  equal?: boolean;
 }) {
   return (
-    <div className="page-tabs" role="tablist" aria-label={label}>
+    <div className={`page-tabs${equal ? " tabs-equal" : ""}`} role="tablist" aria-label={label}>
       <div className="page-tabs-scroller">
         {tabs.map((tab, i) => {
           const edge =
