@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ChevronRight, Package } from "lucide-react";
+import { ChevronRight, Layers } from "lucide-react";
 import { toast } from "sonner";
 import type { Challenge, Group } from "@/lib/api";
 import { getGroup, listChallenges } from "@/lib/platform";
-import { challengePoints, groupByPackage } from "@/lib/challengeMeta";
+import { challengePoints, groupBySet } from "@/lib/challengeMeta";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 
@@ -45,7 +45,7 @@ export function StudentGroupDetailPage() {
     };
   }, [id]);
 
-  const packages = useMemo(() => groupByPackage(challenges), [challenges]);
+  const sets = useMemo(() => groupBySet(challenges), [challenges]);
 
   return (
     <Shell role="student">
@@ -67,9 +67,9 @@ export function StudentGroupDetailPage() {
         <>
           <h1>{group.name}</h1>
           <p className="muted" style={{ marginTop: 0 }}>
-            {t("pick_package")}
+            {t("pick_set")}
           </p>
-          {packages.length === 0 ? (
+          {sets.length === 0 ? (
             <section className="empty-state card panel-fill">
               <p className="muted" style={{ margin: 0 }}>
                 {t("no_assigned_labs")}
@@ -78,24 +78,24 @@ export function StudentGroupDetailPage() {
           ) : (
             <div className="tile-panel panel-fill">
               <div className="tile-grid">
-                {packages.map(([name, labs]) => {
-                  const points = labs.reduce((s, ch) => s + challengePoints(ch.flags), 0);
+                {sets.map(([name, items]) => {
+                  const points = items.reduce((s, ch) => s + challengePoints(ch.flags), 0);
                   return (
                     <Link
                       key={name}
-                      to={`/groups/${group.id}/packages/${encodeURIComponent(name)}`}
+                      to={`/groups/${group.id}/sets/${encodeURIComponent(name)}`}
                       className="tile-card tile-link"
                     >
                       <div className="row" style={{ marginBottom: 8 }}>
-                        <Package size={18} />
+                        <Layers size={18} />
                         <strong>{name}</strong>
                       </div>
                       <div className="small-text">
-                        {labs[0]?.description || t("labs_in_package")}
+                        {items[0]?.description || t("challenges_in_set")}
                       </div>
                       <div className="tile-meta" style={{ marginTop: 12 }}>
                         <span>
-                          {labs.length} {t("assigned_labs")}
+                          {items.length} {t("challenges_count")}
                         </span>
                         <span>
                           {points} {t("points")}

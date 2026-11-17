@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 import { toast } from "sonner";
-import { CopyButton } from "@/components/CopyButton";
 
 export function ProfilePage() {
   const { slug = "" } = useParams();
@@ -51,7 +50,6 @@ export function ProfilePage() {
   const shellRole = user?.role === "admin" ? "admin" : "student";
   const profileRole = profile?.role === "admin" ? "admin" : "student";
   const roleLabel = profileRole === "admin" ? t("role_admin") : t("role_student");
-  const initial = (profile?.username || "?").slice(0, 1).toUpperCase();
 
   const body = missing ? (
     <>
@@ -66,8 +64,7 @@ export function ProfilePage() {
       <section className="card panel-fill profile-card">
         <div className="profile-hero">
           <div className="profile-avatar" aria-hidden>
-            <span className="profile-avatar-letter">{initial}</span>
-            <UserRound size={28} className="profile-avatar-icon" />
+            <UserRound size={36} className="profile-avatar-icon" strokeWidth={1.6} />
           </div>
           <div className="profile-hero-text">
             <div className="profile-name-row">
@@ -77,10 +74,6 @@ export function ProfilePage() {
             <div className="profile-id-row">
               <span className="small-text">{t("public_id")}</span>
               <code className="font-mono profile-id-value">{profile.id}</code>
-              <CopyButton value={profile.id} label={t("copy")} />
-            </div>
-            <div className="small-text font-mono muted" style={{ marginTop: 6 }}>
-              {profile.path}
             </div>
           </div>
         </div>
@@ -108,12 +101,6 @@ export function ProfilePage() {
             </div>
           </div>
         </div>
-
-        {isMine && user?.role === "admin" ? (
-          <p className="small-text" style={{ marginTop: 18 }}>
-            {t("admin_profile_hint")}
-          </p>
-        ) : null}
 
         {isMine && user?.role !== "admin" ? (
           <form onSubmit={(e) => void onSave(e)} className="profile-handle-form">

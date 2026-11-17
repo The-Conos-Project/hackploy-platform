@@ -1112,7 +1112,7 @@ button.secondary:hover {
   align-content: start;
 }
 
-.pkg-stack.panel-fill {
+.set-stack.panel-fill {
   flex: 1;
 }
 
@@ -1129,7 +1129,54 @@ button.secondary:hover {
   white-space: nowrap;
 }
 
-.station-tile .station-actions {
+.timer-chip.is-urgent {
+  border-color: color-mix(in oklab, #f87171 45%, var(--border));
+  color: #fecaca;
+}
+
+.set-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.connection-banner {
+  margin-bottom: 14px;
+}
+
+.challenge-tile {
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.challenge-tile .status-icon {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+
+.challenge-tile .status-icon.ok {
+  color: #86efac;
+}
+
+.challenge-tile.status-solved {
+  border-color: color-mix(in oklab, #34d399 35%, var(--border));
+}
+
+.challenge-modal {
+  width: min(560px, 94vw);
+}
+
+.hint-block {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 55%, transparent);
+}
+
+.challenge-tile .challenge-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1172,11 +1219,10 @@ button.secondary:hover {
 }
 
 .profile-avatar {
-  position: relative;
   width: 88px;
   height: 88px;
   border-radius: 22px;
-  border: 1px dashed color-mix(in oklab, var(--border) 80%, var(--muted-foreground));
+  border: 1px solid var(--border);
   background:
     linear-gradient(145deg, color-mix(in oklab, var(--accent) 70%, transparent), transparent),
     color-mix(in oklab, var(--muted) 55%, transparent);
@@ -1186,20 +1232,9 @@ button.secondary:hover {
   overflow: hidden;
 }
 
-.profile-avatar-letter {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  color: var(--foreground);
-  z-index: 1;
-}
-
 .profile-avatar-icon {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  opacity: 0.35;
   color: var(--muted-foreground);
+  opacity: 0.9;
 }
 
 .profile-hero-text {
@@ -1729,7 +1764,7 @@ button.secondary:hover {
   padding-right: 4px;
 }
 
-.assign-pkg-filter {
+.assign-set-filter {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1744,15 +1779,15 @@ button.secondary:hover {
   font-size: 13px;
 }
 
-.assign-pkg-filter.active,
-.assign-pkg-filter:hover {
+.assign-set-filter.active,
+.assign-set-filter:hover {
   background: var(--accent);
   color: var(--foreground);
   border-color: var(--border);
   filter: none;
 }
 
-.assign-pkg-count {
+.assign-set-count {
   margin-left: auto;
   font-size: 11px;
   opacity: 0.7;
@@ -1778,7 +1813,7 @@ button.secondary:hover {
   min-height: 36px;
 }
 
-.assign-packages {
+.assign-sets {
   overflow: auto;
   flex: 1;
   display: flex;
@@ -1787,20 +1822,20 @@ button.secondary:hover {
   padding-right: 4px;
 }
 
-.assign-pkg {
+.assign-set {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 10px;
   background: color-mix(in oklab, var(--card) 75%, #000 25%);
 }
 
-.assign-pkg-head {
+.assign-set-head {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.assign-pkg-toggle {
+.assign-set-toggle {
   flex: 1;
   display: flex;
   align-items: center;
@@ -1813,13 +1848,13 @@ button.secondary:hover {
   text-align: left;
 }
 
-.assign-pkg-toggle .chev {
+.assign-set-toggle .chev {
   margin-left: auto;
   transition: transform 0.15s;
   color: var(--muted-foreground);
 }
 
-.assign-pkg-toggle .chev.open {
+.assign-set-toggle .chev.open {
   transform: rotate(180deg);
 }
 
@@ -1842,20 +1877,20 @@ button.secondary:hover {
   border: 1px solid var(--border);
 }
 
-.pkg-stack {
+.set-stack {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.pkg-card-head {
+.set-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.pkg-card-toggle {
+.set-card-toggle {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1868,13 +1903,13 @@ button.secondary:hover {
   flex: 1;
 }
 
-.pkg-card-toggle .chev {
+.set-card-toggle .chev {
   margin-left: auto;
   transition: transform 0.15s;
   color: var(--muted-foreground);
 }
 
-.pkg-card-toggle .chev.open {
+.set-card-toggle .chev.open {
   transform: rotate(180deg);
 }
 
@@ -2140,7 +2175,7 @@ button.secondary:hover {
     align-items: flex-start;
   }
 
-  .pkg-card-head {
+  .set-card-head {
     flex-wrap: wrap;
   }
 }

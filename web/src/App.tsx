@@ -10,13 +10,13 @@ import { AdminOverviewPage } from "@/pages/admin/Overview";
 import { AdminChallengesPage } from "@/pages/admin/Challenges";
 import { AdminGroupsPage } from "@/pages/admin/Groups";
 import { AdminGroupDetailPage } from "@/pages/admin/GroupDetail";
-import { AdminPlaceholderPage } from "@/pages/admin/Placeholder";
+import { AdminUsersPage } from "@/pages/admin/Users";
 import { AdminSettingsPage } from "@/pages/admin/Settings";
 import { LeaderboardPage } from "@/pages/Leaderboard";
 import { StudentDashboardPage } from "@/pages/student/Dashboard";
 import { StudentGroupsPage } from "@/pages/student/Groups";
 import { StudentGroupDetailPage } from "@/pages/student/GroupDetail";
-import { StudentPackageDetailPage } from "@/pages/student/PackageDetail";
+import { StudentSetDetailPage } from "@/pages/student/SetDetail";
 import { ChangePasswordPage } from "@/pages/student/ChangePassword";
 
 export default function App() {
@@ -73,7 +73,7 @@ export default function App() {
           path="/admin/users"
           element={
             <RequireAuth role="admin">
-              <AdminPlaceholderPage titleKey="nav_users" />
+              <AdminUsersPage />
             </RequireAuth>
           }
         />
@@ -114,10 +114,18 @@ export default function App() {
           }
         />
         <Route
-          path="/groups/:id/packages/:pkg"
+          path="/groups/:id/sets/:setId"
           element={
             <RequireAuth role="student">
-              <StudentPackageDetailPage />
+              <StudentSetDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/groups/:id/packages/:setId"
+          element={
+            <RequireAuth role="student">
+              <StudentSetDetailPage />
             </RequireAuth>
           }
         />

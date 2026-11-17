@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ChevronDown, FileText, Hammer, Package, Plus, Search, Trash2, X } from "lucide-react";
+import { ChevronDown, FileText, Hammer, Layers, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Challenge } from "@/lib/api";
 import { listChallenges } from "@/lib/platform";
-import { groupByPackage, packageName } from "@/lib/challengeMeta";
+import { groupBySet, setName } from "@/lib/challengeMeta";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 
@@ -16,7 +16,7 @@ export function AdminChallengesPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [queryDraft, setQueryDraft] = useState("");
   const [query, setQuery] = useState("");
-  const [logPkg, setLogPkg] = useState<string | null>(null);
+  const [logSet, setLogSet] = useState<string | null>(null);
   const [logChallengeId, setLogChallengeId] = useState<string | null>(null);
   const [logText, setLogText] = useState("");
   const [logBuilding, setLogBuilding] = useState(false);
@@ -43,9 +43,9 @@ export function AdminChallengesPage() {
     logEndRef.current?.scrollTo({ top: logEndRef.current.scrollHeight });
   }, [logText]);
 
-  const packages = useMemo(() => {
+  const sets = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const all = groupByPackage(challenges);
+    const all = groupBySet(challenges);
     if (!q) return all;
     return all.filter(([name, labs]) => {
       const hay = `${name} ${labs.map((c) => `${c.display_name} ${c.name} ${c.description}`).join(" ")}`.toLowerCase();
@@ -81,10 +81,10 @@ export function AdminChallengesPage() {
     pollRef.current = window.setInterval(() => void tick(), 1200);
   };
 
-  const openLog = (pkg: string, labs: Challenge[]) => {
+  const openLog = (setKey: string, labs: Challenge[]) => {
     const id = labs[0]?.id;
     if (!id) return;
-    setLogPkg(pkg);
+    setLogSet(setKey);
     setLogChallengeId(id);
     setLogText("");
     setLogBuilding(labs.some((c) => c.build_status === "building"));
@@ -122,11 +122,11 @@ export function AdminChallengesPage() {
     }
   };
 
-  const buildPackage = async (pkg: string, labs: Challenge[]) => {
+  const buildSet = async (setKey: string, labs: Challenge[]) => {
     if (labs.length === 0) return;
     const id = labs[0].id;
     setBusy(true);
-    setLogPkg(pkg);
+    setLogSet(setKey);
     setLogChallengeId(id);
     setLogText("");
     setLogBuilding(true);
@@ -144,7 +144,7 @@ export function AdminChallengesPage() {
     }
   };
 
-  const deletePackage = async (labs: Challenge[]) => {
+  const deleteSet = async (labs: Challenge[]) => {
     setBusy(true);
     try {
       for (const ch of labs) {
@@ -215,7 +215,7 @@ export function AdminChallengesPage() {
                 className="font-mono"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://…/package.tar.gz"
+                placeholder="https://…/set.tar.gz"
                 required
               />
               <button type="submit" className="btn-compact" disabled={busy}>
@@ -226,30 +226,30 @@ export function AdminChallengesPage() {
         </div>
       ) : null}
 
-      {packages.length === 0 ? (
+      {sets.length === 0 ? (
         <section className="empty-state card panel-fill">
           <p className="muted" style={{ margin: 0 }}>
             {t("no_challenges")}
           </p>
         </section>
       ) : (
-        <div className="pkg-stack panel-fill">
-          {packages.map(([name, labs]) => {
+        <div className="set-stack panel-fill">
+          {sets.map(([name, labs]) => {
             const isOpen = expanded[name] ?? false;
             const status = labs[0]?.build_status || "pending";
             return (
-              <section key={name} className="card pkg-card">
-                <div className="pkg-card-head">
+              <section key={name} className="card set-card">
+                <div className="set-card-head">
                   <button
                     type="button"
-                    className="pkg-card-toggle"
+                    className="set-card-toggle"
                     onClick={() => setExpanded((p) => ({ ...p, [name]: !isOpen }))}
                   >
-                    <Package size={18} />
+                    <Layers size={18} />
                     <div>
                       <strong>{name}</strong>
                       <div className="small-text">
-                        {labs.length} {t("labs_in_package")}
+                        {labs.length} {t("challenges_in_set")}
                       </div>
                     </div>
                     <ChevronDown size={18} className={isOpen ? "chev open" : "chev"} />
@@ -265,7 +265,7 @@ export function AdminChallengesPage() {
                       className="icon-action"
                       title={t("build")}
                       disabled={busy}
-                      onClick={() => void buildPackage(name, labs)}
+                      onClick={() => void buildSet(name, labs)}
                     >
                       <Hammer size={15} />
                     </button>
@@ -282,7 +282,7 @@ export function AdminChallengesPage() {
                       className="icon-action danger"
                       title={t("delete")}
                       disabled={busy}
-                      onClick={() => void deletePackage(labs)}
+                      onClick={() => void deleteSet(labs)}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -314,14 +314,14 @@ export function AdminChallengesPage() {
         </div>
       )}
 
-      {logPkg ? (
+      {logSet ? (
         <div
           className="modal"
           style={{ display: "flex" }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               stopPoll();
-              setLogPkg(null);
+              setLogSet(null);
             }
           }}
         >
@@ -329,11 +329,11 @@ export function AdminChallengesPage() {
             <div className="row" style={{ marginBottom: 12 }}>
               <div>
                 <h3 style={{ margin: 0 }}>
-                  {t("build_log")} · {logPkg}
+                  {t("build_log")} · {logSet}
                 </h3>
                 <div className="small-text">
                   {logBuilding ? t("build_running") : t("build_log_hint")}
-                  {logChallengeId ? ` · ${packageName(challenges.find((c) => c.id === logChallengeId)?.image_tag || logPkg)}` : null}
+                  {logChallengeId ? ` · ${setName(challenges.find((c) => c.id === logChallengeId)?.image_tag || logSet)}` : null}
                 </div>
               </div>
               <button
@@ -341,7 +341,7 @@ export function AdminChallengesPage() {
                 className="icon-action"
                 onClick={() => {
                   stopPoll();
-                  setLogPkg(null);
+                  setLogSet(null);
                 }}
               >
                 <X size={16} />

@@ -18,9 +18,9 @@ const maxArchiveBytes = 100 << 20
 const maxMembers = 5000
 
 type ImportResult struct {
-	PackageName string   `json:"package_name"`
-	ImageTag    string   `json:"image_tag"`
-	SourceDir   string   `json:"source_dir"`
+	SetName      string   `json:"set_name"`
+	ImageTag     string   `json:"image_tag"`
+	SourceDir    string   `json:"source_dir"`
 	ChallengeIDs []string `json:"challenge_ids"`
 }
 
@@ -107,14 +107,14 @@ func ImportTarGz(st *store.Store, dataDir string, r io.Reader) (*ImportResult, e
 		return nil, err
 	}
 
-	pkgRoot := filepath.Join(dataDir, "challenges", manifest.Name)
-	_ = os.RemoveAll(pkgRoot)
-	if err := os.MkdirAll(filepath.Dir(pkgRoot), 0o755); err != nil {
+	setRoot := filepath.Join(dataDir, "challenges", manifest.Name)
+	_ = os.RemoveAll(setRoot)
+	if err := os.MkdirAll(filepath.Dir(setRoot), 0o755); err != nil {
 		return nil, err
 	}
-	if err := os.Rename(buildDir, pkgRoot); err != nil {
+	if err := os.Rename(buildDir, setRoot); err != nil {
 		// cross-device fallback
-		if err := copyDir(buildDir, pkgRoot); err != nil {
+		if err := copyDir(buildDir, setRoot); err != nil {
 			return nil, err
 		}
 	}
@@ -123,35 +123,35 @@ func ImportTarGz(st *store.Store, dataDir string, r io.Reader) (*ImportResult, e
 
 	imageTag := "hackploy-" + manifest.Name
 	creds, _ := json.Marshal(manifest.Credentials)
-	stations := manifest.Stations()
-	// Replace prior stations from this package (same image tag / names).
+	challenges := manifest.NormalizedChallenges()
+	// Replace prior challenges from this set (same image tag / names).
 	existing, _ := st.ListChallenges()
 	for _, old := range existing {
 		if old.ImageTag == imageTag {
 			_ = st.DeleteChallenge(old.ID)
 			continue
 		}
-		for _, stn := range stations {
-			if old.Name == stn.Name {
+		for _, c := range challenges {
+			if old.Name == c.Name {
 				_ = st.DeleteChallenge(old.ID)
 				break
 			}
 		}
 	}
 	var ids []string
-	for _, stn := range stations {
-		flagsJSON, _ := json.Marshal(stn.Flags)
+	for _, c := range challenges {
+		flagsJSON, _ := json.Marshal(c.Flags)
 		id := uuid.NewString()[:8]
 		ch := &store.Challenge{
 			ID:          id,
-			Name:        stn.Name,
-			DisplayName: stn.DisplayName,
-			Description: stn.Description,
+			Name:        c.Name,
+			DisplayName: c.DisplayName,
+			Description: c.Description,
 			ImageTag:    imageTag,
 			Flags:       string(flagsJSON),
 			Credentials: string(creds),
 			BuildStatus: "pending",
-			SourcePath:  pkgRoot,
+			SourcePath:  setRoot,
 		}
 		if err := st.UpsertChallenge(ch); err != nil {
 			return nil, err
@@ -160,9 +160,9 @@ func ImportTarGz(st *store.Store, dataDir string, r io.Reader) (*ImportResult, e
 	}
 
 	return &ImportResult{
-		PackageName:  manifest.Name,
+		SetName:      manifest.Name,
 		ImageTag:     imageTag,
-		SourceDir:    pkgRoot,
+		SourceDir:    setRoot,
 		ChallengeIDs: ids,
 	}, nil
 }
@@ -190,7 +190,7 @@ func findBuildDir(root string) (string, error) {
 		return "", fmt.Errorf("archive needs Dockerfile + hackploy.json")
 	}
 	if len(found) > 1 {
-		return "", fmt.Errorf("archive has multiple challenge packages")
+		return "", fmt.Errorf("archive has multiple challenge sets")
 	}
 	return found[0], nil
 }

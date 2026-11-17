@@ -1,12 +1,9 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, Package, Search } from "lucide-react";
+import { ChevronDown, Layers, Search } from "lucide-react";
 import type { Challenge } from "@/lib/api";
 import { useI18n } from "@/i18n";
+import { setName } from "@/lib/challengeMeta";
 import { Checkbox } from "./Checkbox";
-
-function packageName(tag: string): string {
-  return tag.replace(/^hackploy-/, "") || tag || "unknown";
-}
 
 export function AssignLabsModal({
   challenges,
@@ -28,13 +25,13 @@ export function AssignLabsModal({
   const { t } = useI18n();
   const [queryDraft, setQueryDraft] = useState("");
   const [query, setQuery] = useState("");
-  const [pkgFilter, setPkgFilter] = useState<string>("all");
-  const [openPkgs, setOpenPkgs] = useState<Record<string, boolean>>({});
+  const [setFilter, setSetFilter] = useState<string>("all");
+  const [openSets, setOpenSets] = useState<Record<string, boolean>>({});
 
-  const packages = useMemo(() => {
+  const sets = useMemo(() => {
     const map = new Map<string, Challenge[]>();
     for (const ch of challenges) {
-      const key = packageName(ch.image_tag);
+      const key = setName(ch.image_tag);
       const list = map.get(key) ?? [];
       list.push(ch);
       map.set(key, list);
@@ -42,10 +39,10 @@ export function AssignLabsModal({
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [challenges]);
 
-  const filteredPackages = useMemo(() => {
+  const filteredSets = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return packages
-      .filter(([name]) => pkgFilter === "all" || name === pkgFilter)
+    return sets
+      .filter(([name]) => setFilter === "all" || name === setFilter)
       .map(([name, labs]) => {
         const labsFiltered = !q
           ? labs
@@ -58,7 +55,7 @@ export function AssignLabsModal({
         return [name, labsFiltered] as const;
       })
       .filter(([, labs]) => labs.length > 0);
-  }, [packages, pkgFilter, query]);
+  }, [sets, setFilter, query]);
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
@@ -67,7 +64,7 @@ export function AssignLabsModal({
     else onChange(selected.filter((x) => x !== id));
   };
 
-  const togglePackage = (labs: Challenge[], on: boolean) => {
+  const toggleSet = (labs: Challenge[], on: boolean) => {
     const ids = labs.map((l) => l.id);
     if (on) {
       const next = new Set(selected);
@@ -79,7 +76,7 @@ export function AssignLabsModal({
     }
   };
 
-  const pkgState = (labs: Challenge[]) => {
+  const setState = (labs: Challenge[]) => {
     const n = labs.filter((l) => selectedSet.has(l.id)).length;
     if (n === 0) return { checked: false, indeterminate: false };
     if (n === labs.length) return { checked: true, indeterminate: false };
@@ -99,25 +96,25 @@ export function AssignLabsModal({
         <div className="assign-layout">
           <aside className="assign-side">
             <div className="small-text" style={{ marginBottom: 8 }}>
-              {t("packages")}
+              {t("sets")}
             </div>
             <button
               type="button"
-              className={`assign-pkg-filter${pkgFilter === "all" ? " active" : ""}`}
-              onClick={() => setPkgFilter("all")}
+              className={`assign-set-filter${setFilter === "all" ? " active" : ""}`}
+              onClick={() => setSetFilter("all")}
             >
-              {t("all_packages")}
+              {t("all_sets")}
             </button>
-            {packages.map(([name, labs]) => (
+            {sets.map(([name, labs]) => (
               <button
                 key={name}
                 type="button"
-                className={`assign-pkg-filter${pkgFilter === name ? " active" : ""}`}
-                onClick={() => setPkgFilter(name)}
+                className={`assign-set-filter${setFilter === name ? " active" : ""}`}
+                onClick={() => setSetFilter(name)}
               >
-                <Package size={14} />
+                <Layers size={14} />
                 <span>{name}</span>
-                <span className="assign-pkg-count">{labs.length}</span>
+                <span className="assign-set-count">{labs.length}</span>
               </button>
             ))}
           </aside>
@@ -137,27 +134,27 @@ export function AssignLabsModal({
               </button>
             </div>
 
-            <div className="assign-packages">
-              {filteredPackages.length === 0 ? (
+            <div className="assign-sets">
+              {filteredSets.length === 0 ? (
                 <p className="small-text">{t("no_challenges")}</p>
               ) : null}
-              {filteredPackages.map(([name, labs]) => {
-                const open = openPkgs[name] ?? true;
-                const st = pkgState(labs);
+              {filteredSets.map(([name, labs]) => {
+                const open = openSets[name] ?? true;
+                const st = setState(labs);
                 return (
-                  <div key={name} className="assign-pkg">
-                    <div className="assign-pkg-head">
+                  <div key={name} className="assign-set">
+                    <div className="assign-set-head">
                       <Checkbox
                         checked={st.checked}
                         indeterminate={st.indeterminate}
-                        onChange={(on) => togglePackage(labs, on)}
+                        onChange={(on) => toggleSet(labs, on)}
                       />
                       <button
                         type="button"
-                        className="assign-pkg-toggle"
-                        onClick={() => setOpenPkgs((p) => ({ ...p, [name]: !open }))}
+                        className="assign-set-toggle"
+                        onClick={() => setOpenSets((p) => ({ ...p, [name]: !open }))}
                       >
-                        <Package size={15} />
+                        <Layers size={15} />
                         <strong>{name}</strong>
                         <span className="small-text">{labs.length}</span>
                         <ChevronDown size={16} className={open ? "chev open" : "chev"} />

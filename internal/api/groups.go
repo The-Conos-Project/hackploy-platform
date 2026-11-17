@@ -181,18 +181,36 @@ func (s *Server) submitFlag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Flag      string `json:"flag"`
-		FlagIndex *int   `json:"flag_index"`
+		Flag        string `json:"flag"`
+		FlagIndex   *int   `json:"flag_index"`
+		ChallengeID string `json:"challenge_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || strings.TrimSpace(body.Flag) == "" {
 		writeErr(w, http.StatusBadRequest, "flag required")
 		return
 	}
 	submitted := strings.TrimSpace(body.Flag)
-	ch, err := s.store.GetChallenge(inst.ChallengeID)
-	if err != nil || ch == nil {
+	// Strip accidental quotes / CR from copy-paste.
+	submitted = strings.Trim(submitted, "\"'` \t\r\n")
+
+	instCh, err := s.store.GetChallenge(inst.ChallengeID)
+	if err != nil || instCh == nil {
 		writeErr(w, http.StatusBadRequest, "challenge missing")
 		return
+	}
+	// Set labs share one container: allow submitting any challenge flag for the same image.
+	ch := instCh
+	if body.ChallengeID != "" && body.ChallengeID != inst.ChallengeID {
+		alt, err := s.store.GetChallenge(body.ChallengeID)
+		if err != nil || alt == nil {
+			writeErr(w, http.StatusBadRequest, "challenge missing")
+			return
+		}
+		if alt.ImageTag != instCh.ImageTag {
+			writeErr(w, http.StatusBadRequest, "challenge not in this lab set")
+			return
+		}
+		ch = alt
 	}
 	specs := parseFlagSpecs(ch.Flags)
 	if len(specs) == 0 {
@@ -205,6 +223,24 @@ func (s *Server) submitFlag(w http.ResponseWriter, r *http.Request) {
 	already := map[string]bool{}
 	for _, f := range submittedFlags {
 		already[f] = true
+	}
+	// Also treat flags from earlier containers of this set as already solved.
+	if prior, _ := s.store.ListInstancesByUser(inst.UserID); prior != nil {
+		for i := range prior {
+			other := &prior[i]
+			if other.ID == inst.ID {
+				continue
+			}
+			och, err := s.store.GetChallenge(other.ChallengeID)
+			if err != nil || och == nil || och.ImageTag != instCh.ImageTag {
+				continue
+			}
+			var more []string
+			_ = json.Unmarshal([]byte(other.SubmittedFlags), &more)
+			for _, f := range more {
+				already[f] = true
+			}
+		}
 	}
 
 	candidates := make([]int, 0, len(specs))
@@ -227,12 +263,19 @@ func (s *Server) submitFlag(w http.ResponseWriter, r *http.Request) {
 		attempts = map[string]int{}
 	}
 
+	for _, spec := range specs {
+		if submitted == spec.Flag && already[spec.Flag] {
+			writeErr(w, http.StatusConflict, "already submitted")
+			return
+		}
+	}
+
 	matchIdx := -1
 	for _, idx := range candidates {
 		if already[specs[idx].Flag] {
 			continue
 		}
-		key := fmt.Sprintf("%d", idx)
+		key := attemptKey(ch.ID, idx)
 		if attempts[key] >= specs[idx].MaxAttempts {
 			continue
 		}
@@ -255,7 +298,7 @@ func (s *Server) submitFlag(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusConflict, "already submitted")
 			return
 		}
-		key := fmt.Sprintf("%d", bump)
+		key := attemptKey(ch.ID, bump)
 		if attempts[key] >= specs[bump].MaxAttempts {
 			writeErr(w, http.StatusTooManyRequests, "no attempts remaining")
 			return
@@ -275,13 +318,24 @@ func (s *Server) submitFlag(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "save failed")
 		return
 	}
+	completed := 0
+	for _, spec := range specs {
+		if already[spec.Flag] || spec.Flag == specs[matchIdx].Flag {
+			completed++
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":        true,
-		"accepted":  specs[matchIdx].Flag,
-		"completed": len(submittedFlags),
-		"total":     len(specs),
-		"points":    specs[matchIdx].Points,
+		"ok":           true,
+		"accepted":     specs[matchIdx].Flag,
+		"completed":    completed,
+		"total":        len(specs),
+		"points":       specs[matchIdx].Points,
+		"challenge_id": ch.ID,
 	})
+}
+
+func attemptKey(challengeID string, idx int) string {
+	return fmt.Sprintf("%s:%d", challengeID, idx)
 }
 
 type leaderboardRow struct {
@@ -344,24 +398,16 @@ func (s *Server) leaderboard(w http.ResponseWriter, r *http.Request) {
 			}
 			scores[mid] = &leaderboardRow{UserID: mid, Username: u.Username}
 		}
-		// score from all instances of members
+		// Score from all submitted flags (set labs share one instance across challenges).
 		for _, mid := range c.MemberIDs {
 			insts, _ := s.store.ListInstancesByUser(mid)
-			solvedByChallenge := map[string]map[string]bool{}
+			gotFlags := map[string]bool{}
 			for _, inst := range insts {
-				if !assigned[inst.ChallengeID] {
-					continue
-				}
 				var flags []string
 				_ = json.Unmarshal([]byte(inst.SubmittedFlags), &flags)
-				set := solvedByChallenge[inst.ChallengeID]
-				if set == nil {
-					set = map[string]bool{}
-				}
 				for _, f := range flags {
-					set[f] = true
+					gotFlags[f] = true
 				}
-				solvedByChallenge[inst.ChallengeID] = set
 			}
 			row := scores[mid]
 			if row == nil {
@@ -373,10 +419,9 @@ func (s *Server) leaderboard(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				specs := parseFlagSpecs(ch.Flags)
-				got := solvedByChallenge[cid]
 				awarded := 0
 				for _, spec := range specs {
-					if got[spec.Flag] {
+					if gotFlags[spec.Flag] {
 						row.Points += spec.Points
 						awarded++
 					}

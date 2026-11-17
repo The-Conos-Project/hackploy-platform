@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/i18n";
+import { copyText } from "@/lib/clipboard";
 
 export function CopyButton({ value, label }: { value: string; label?: string }) {
   const { t } = useI18n();
@@ -9,7 +10,7 @@ export function CopyButton({ value, label }: { value: string; label?: string }) 
 
   const onCopy = async () => {
     try {
-      await navigator.clipboard.writeText(value);
+      await copyText(value);
       setOk(true);
       toast.success(t("copied"));
       window.setTimeout(() => setOk(false), 1200);

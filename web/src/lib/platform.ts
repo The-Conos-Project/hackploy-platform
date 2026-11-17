@@ -36,7 +36,9 @@ export async function assignLabs(id: string, challengeIds: string[]): Promise<Gr
   return api.assignLabs(id, challengeIds);
 }
 
-export async function listUsers(): Promise<{ id: string; username: string; path: string }[]> {
+export async function listUsers(): Promise<
+  { id: string; username: string; handle?: string; path: string; role?: string }[]
+> {
   const res = await api.listUsers();
   return res.users ?? [];
 }

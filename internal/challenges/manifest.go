@@ -10,16 +10,17 @@ import (
 var nameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_.-]{0,62}$`)
 var flagRe = regexp.MustCompile(`^CN\{.+\}$`)
 
+// Manifest describes one set (hackploy.json): one image, one or more challenges.
 type Manifest struct {
-	Name         string           `json:"name"`
-	DisplayName  string           `json:"display_name"`
-	Description  string           `json:"description"`
-	Credentials  map[string]any   `json:"credentials"`
-	Flags        []FlagSpec       `json:"flags"`
-	Challenges   []StationSpec    `json:"challenges"`
+	Name        string          `json:"name"`
+	DisplayName string          `json:"display_name"`
+	Description string          `json:"description"`
+	Credentials map[string]any  `json:"credentials"`
+	Flags       []FlagSpec      `json:"flags"`
+	Challenges  []ChallengeSpec `json:"challenges"`
 }
 
-type StationSpec struct {
+type ChallengeSpec struct {
 	Name        string     `json:"name"`
 	DisplayName string     `json:"display_name"`
 	Description string     `json:"description"`
@@ -30,14 +31,14 @@ type StationSpec struct {
 }
 
 type FlagSpec struct {
-	Flag         string   `json:"flag"`
-	Points       int      `json:"points"`
-	MaxAttempts  int      `json:"max_attempts"`
-	Description  string   `json:"description"`
-	Hints        []string `json:"hints"`
+	Flag        string   `json:"flag"`
+	Points      int      `json:"points"`
+	MaxAttempts int      `json:"max_attempts"`
+	Description string   `json:"description"`
+	Hints       []string `json:"hints"`
 }
 
-type NormalizedStation struct {
+type NormalizedChallenge struct {
 	Name        string
 	DisplayName string
 	Description string
@@ -61,16 +62,16 @@ func LoadManifest(path string) (*Manifest, error) {
 
 func (m *Manifest) Validate() error {
 	if !nameRe.MatchString(m.Name) {
-		return fmt.Errorf("invalid package name %q", m.Name)
+		return fmt.Errorf("invalid set name %q", m.Name)
 	}
 	if m.DisplayName == "" {
 		m.DisplayName = m.Name
 	}
-	for _, st := range m.Stations() {
-		if !nameRe.MatchString(st.Name) {
-			return fmt.Errorf("invalid station name %q", st.Name)
+	for _, ch := range m.NormalizedChallenges() {
+		if !nameRe.MatchString(ch.Name) {
+			return fmt.Errorf("invalid challenge name %q", ch.Name)
 		}
-		for _, f := range st.Flags {
+		for _, f := range ch.Flags {
 			if !flagRe.MatchString(f.Flag) {
 				return fmt.Errorf("flag must use CN{...} format: %q", f.Flag)
 			}
@@ -79,9 +80,9 @@ func (m *Manifest) Validate() error {
 	return nil
 }
 
-func (m *Manifest) Stations() []NormalizedStation {
+func (m *Manifest) NormalizedChallenges() []NormalizedChallenge {
 	if len(m.Challenges) > 0 {
-		out := make([]NormalizedStation, 0, len(m.Challenges))
+		out := make([]NormalizedChallenge, 0, len(m.Challenges))
 		for _, ch := range m.Challenges {
 			flags := ch.Flags
 			if ch.Flag != "" {
@@ -98,7 +99,7 @@ func (m *Manifest) Stations() []NormalizedStation {
 			if dn == "" {
 				dn = ch.Name
 			}
-			out = append(out, NormalizedStation{
+			out = append(out, NormalizedChallenge{
 				Name:        ch.Name,
 				DisplayName: dn,
 				Description: ch.Description,
@@ -107,7 +108,7 @@ func (m *Manifest) Stations() []NormalizedStation {
 		}
 		return out
 	}
-	return []NormalizedStation{{
+	return []NormalizedChallenge{{
 		Name:        m.Name,
 		DisplayName: m.DisplayName,
 		Description: m.Description,

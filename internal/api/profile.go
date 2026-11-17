@@ -44,28 +44,24 @@ func (s *Server) computeProfileStats(userID string) profileStats {
 	if err != nil {
 		return out
 	}
-	solvedByChallenge := map[string]map[string]bool{}
+	gotFlags := map[string]bool{}
 	for _, inst := range insts {
 		var flags []string
 		_ = json.Unmarshal([]byte(inst.SubmittedFlags), &flags)
-		set := solvedByChallenge[inst.ChallengeID]
-		if set == nil {
-			set = map[string]bool{}
-		}
 		for _, f := range flags {
-			set[f] = true
+			gotFlags[f] = true
 		}
-		solvedByChallenge[inst.ChallengeID] = set
 	}
-	for cid, got := range solvedByChallenge {
-		ch, _ := s.store.GetChallenge(cid)
-		if ch == nil {
-			continue
-		}
+	all, err := s.store.ListChallenges()
+	if err != nil {
+		return out
+	}
+	for i := range all {
+		ch := &all[i]
 		specs := parseFlagSpecs(ch.Flags)
 		awarded := 0
 		for _, spec := range specs {
-			if got[spec.Flag] {
+			if gotFlags[spec.Flag] {
 				out.Points += spec.Points
 				awarded++
 			}
@@ -75,7 +71,7 @@ func (s *Server) computeProfileStats(userID string) profileStats {
 		}
 	}
 
-	all, err := s.store.ListAllInstances()
+	everyone, err := s.store.ListAllInstances()
 	if err != nil {
 		return out
 	}
@@ -83,18 +79,17 @@ func (s *Server) computeProfileStats(userID string) profileStats {
 		userID string
 		at     time.Time
 	}
-	first := map[string]blood{} // challengeID\x00flag -> earliest
-	for _, inst := range all {
+	first := map[string]blood{} // flag -> earliest (set labs share flags across challenges)
+	for _, inst := range everyone {
 		var flags []string
 		_ = json.Unmarshal([]byte(inst.SubmittedFlags), &flags)
 		if len(flags) == 0 {
 			continue
 		}
 		for _, f := range flags {
-			key := inst.ChallengeID + "\x00" + f
-			prev, ok := first[key]
+			prev, ok := first[f]
 			if !ok || inst.CreatedAt.Before(prev.at) {
-				first[key] = blood{userID: inst.UserID, at: inst.CreatedAt}
+				first[f] = blood{userID: inst.UserID, at: inst.CreatedAt}
 			}
 		}
 	}

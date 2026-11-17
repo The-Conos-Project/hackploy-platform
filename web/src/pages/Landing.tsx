@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Package, Terminal, Users } from "lucide-react";
+import { Layers, Terminal, Users } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { BrandMark } from "@/components/BrandMark";
 import { LangSwitch } from "@/components/LangSwitch";
@@ -31,7 +31,7 @@ export function LandingPage() {
         </Link>
         <div className="grid" style={{ marginTop: 58, textAlign: "left" }}>
           <div className="card">
-            <Package />
+            <Layers />
             <h3>{t("feature_isolated")}</h3>
             <p className="small-text">{t("feature_isolated_body")}</p>
           </div>

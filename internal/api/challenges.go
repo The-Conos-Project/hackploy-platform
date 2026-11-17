@@ -113,7 +113,7 @@ func (s *Server) deleteChallenge(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "delete failed")
 		return
 	}
-	// remove package dir only if no other station shares it
+	// remove set source dir only if no other challenge shares it
 	others, _ := s.store.ListChallenges()
 	shared := false
 	for _, o := range others {

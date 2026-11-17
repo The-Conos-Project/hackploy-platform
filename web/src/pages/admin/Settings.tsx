@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
 import { PageTabs } from "@/components/PageTabs";
 import { CopyButton } from "@/components/CopyButton";
+import { copyText as writeClipboard } from "@/lib/clipboard";
 
 export function AdminSettingsPage() {
   const { t } = useI18n();
@@ -90,7 +91,7 @@ export function AdminSettingsPage() {
 
   const copyText = async (value: string) => {
     try {
-      await navigator.clipboard.writeText(value);
+      await writeClipboard(value);
       toast.success(t("copied"));
     } catch {
       toast.error(t("copy_failed"));

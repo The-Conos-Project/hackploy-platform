@@ -86,6 +86,13 @@ func (s *Server) startLab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reuse this student's already-running container for the same challenge image
+	// (challenges in a set share one lab). Dead/orphan rows are marked stopped.
+	if existing := s.runningInstanceForImage(r.Context(), sess.Subject, ch.ImageTag); existing != nil {
+		writeJSON(w, http.StatusOK, existing)
+		return
+	}
+
 	n, err := dockerx.CountRunningForUser(r.Context(), sess.Subject)
 	if err != nil {
 		writeErr(w, http.StatusServiceUnavailable, err.Error())
@@ -98,7 +105,22 @@ func (s *Server) startLab(w http.ResponseWriter, r *http.Request) {
 
 	var creds map[string]string
 	_ = json.Unmarshal([]byte(ch.Credentials), &creds)
-	pkg := strings.TrimPrefix(ch.ImageTag, "hackploy-")
+	setName := strings.TrimPrefix(ch.ImageTag, "hackploy-")
+
+	// Multi-challenge sets share one image — leave ChallengeName empty so the
+	// container exposes every challenge (not a single pinned challenge).
+	challengeCount := 0
+	if all, err := s.store.ListChallenges(); err == nil {
+		for i := range all {
+			if all[i].ImageTag == ch.ImageTag {
+				challengeCount++
+			}
+		}
+	}
+	challengeName := ""
+	if challengeCount <= 1 {
+		challengeName = ch.Name
+	}
 
 	lab, err := dockerx.StartLab(r.Context(), dockerx.StartRequest{
 		ChallengeID:   ch.ID,
@@ -106,14 +128,17 @@ func (s *Server) startLab(w http.ResponseWriter, r *http.Request) {
 		UserID:        sess.Subject,
 		Username:      creds["username"],
 		Password:      creds["password"],
-		ChallengeName: ch.Name,
-		PackageName:   pkg,
+		ChallengeName: challengeName,
+		SetName:       setName,
 		TimeoutSec:    s.cfg.InstanceTimeout,
 	})
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// Keep solve progress across destroy/recreate; container FS is still fresh.
+	priorFlags, priorAttempts := s.priorSetProgress(sess.Subject, ch.ImageTag)
 
 	port := lab.HostPort
 	inst := &store.Instance{
@@ -129,8 +154,8 @@ func (s *Server) startLab(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt:      &lab.ExpiresAt,
 		Username:       lab.Username,
 		Password:       lab.Password,
-		SubmittedFlags: "[]",
-		AttemptCounts:  "{}",
+		SubmittedFlags: priorFlags,
+		AttemptCounts:  priorAttempts,
 	}
 	if err := s.store.CreateInstance(inst); err != nil {
 		_ = dockerx.StopLab(r.Context(), lab.ContainerID)
@@ -138,6 +163,69 @@ func (s *Server) startLab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, inst)
+}
+
+func (s *Server) runningInstanceForImage(ctx context.Context, userID, imageTag string) *store.Instance {
+	list, err := s.store.ListInstancesByUser(userID)
+	if err != nil {
+		return nil
+	}
+	for i := range list {
+		inst := &list[i]
+		if inst.Status != "running" {
+			continue
+		}
+		ch, err := s.store.GetChallenge(inst.ChallengeID)
+		if err != nil || ch == nil || ch.ImageTag != imageTag {
+			continue
+		}
+		if dockerx.ContainerRunning(ctx, inst.ContainerID) {
+			return inst
+		}
+		inst.Status = "stopped"
+		_ = s.store.UpdateInstance(inst)
+	}
+	return nil
+}
+
+func (s *Server) priorSetProgress(userID, imageTag string) (flagsJSON, attemptsJSON string) {
+	flagsJSON, attemptsJSON = "[]", "{}"
+	list, err := s.store.ListInstancesByUser(userID)
+	if err != nil {
+		return flagsJSON, attemptsJSON
+	}
+	flagSet := map[string]bool{}
+	attempts := map[string]int{}
+	for i := range list {
+		inst := &list[i]
+		ch, err := s.store.GetChallenge(inst.ChallengeID)
+		if err != nil || ch == nil || ch.ImageTag != imageTag {
+			continue
+		}
+		var flags []string
+		_ = json.Unmarshal([]byte(inst.SubmittedFlags), &flags)
+		for _, f := range flags {
+			flagSet[f] = true
+		}
+		var att map[string]int
+		_ = json.Unmarshal([]byte(inst.AttemptCounts), &att)
+		for k, v := range att {
+			if v > attempts[k] {
+				attempts[k] = v
+			}
+		}
+	}
+	out := make([]string, 0, len(flagSet))
+	for f := range flagSet {
+		out = append(out, f)
+	}
+	if b, err := json.Marshal(out); err == nil {
+		flagsJSON = string(b)
+	}
+	if b, err := json.Marshal(attempts); err == nil {
+		attemptsJSON = string(b)
+	}
+	return flagsJSON, attemptsJSON
 }
 
 func (s *Server) stopLab(w http.ResponseWriter, r *http.Request) {

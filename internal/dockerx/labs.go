@@ -19,7 +19,7 @@ type StartRequest struct {
 	Username      string
 	Password      string
 	ChallengeName string
-	PackageName   string
+	SetName       string
 	TimeoutSec    int
 }
 
@@ -72,7 +72,12 @@ func StartLab(ctx context.Context, req StartRequest) (*RunningLab, error) {
 		}
 	}
 
-	name := fmt.Sprintf("hackploy-%s-%d", req.ChallengeID, time.Now().Unix())
+	// Fresh container every start from the built image (writable layer starts clean).
+	userPart := req.UserID
+	if len(userPart) > 8 {
+		userPart = userPart[:8]
+	}
+	name := fmt.Sprintf("hackploy-%s-%s-%d", userPart, req.ChallengeID, time.Now().Unix())
 	args := []string{
 		"run", "-d",
 		"--name", name,
@@ -87,8 +92,9 @@ func StartLab(ctx context.Context, req StartRequest) (*RunningLab, error) {
 		"--label", "hackploy.instance=1",
 		"--label", "hackploy.challenge_id=" + req.ChallengeID,
 		"--label", "hackploy.user_id=" + req.UserID,
+		"--label", "hackploy.image=" + imageRef,
 	}
-	if req.ChallengeName != "" && req.ChallengeName != req.PackageName {
+	if req.ChallengeName != "" && req.ChallengeName != req.SetName {
 		args = append(args, "-e", "CHALLENGE_NAME="+req.ChallengeName)
 	}
 	args = append(args, imageRef)
@@ -141,13 +147,27 @@ func StartLab(ctx context.Context, req StartRequest) (*RunningLab, error) {
 }
 
 func StopLab(ctx context.Context, containerID string) error {
+	// Destroy the container entirely — next start is a fresh image copy.
 	_ = exec.CommandContext(ctx, "docker", "rm", "-f", containerID).Run()
 	return nil
+}
+
+func ContainerRunning(ctx context.Context, containerID string) bool {
+	if containerID == "" {
+		return false
+	}
+	out, err := exec.CommandContext(ctx, "docker", "inspect",
+		"--format", "{{.State.Running}}", containerID).Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) == "true"
 }
 
 func CountRunningForUser(ctx context.Context, userID string) (int, error) {
 	out, err := exec.CommandContext(ctx, "docker", "ps",
 		"--filter", "label=hackploy.user_id="+userID,
+		"--filter", "status=running",
 		"--format", "{{.ID}}").Output()
 	if err != nil {
 		return 0, err

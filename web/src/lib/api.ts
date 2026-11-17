@@ -44,7 +44,7 @@ export type Challenge = {
 };
 
 export type ImportResult = {
-  package_name: string;
+  set_name: string;
   image_tag: string;
   source_dir: string;
   challenge_ids: string[];
@@ -192,24 +192,26 @@ export const api = {
   extendLab: (id: string) =>
     request<LabInstance>(`/api/v1/labs/${id}/extend`, { method: "POST" }),
   listLabs: () => request<{ labs: LabInstance[] }>("/api/v1/labs/"),
-  submitFlag: (id: string, flag: string, flagIndex?: number) =>
+  submitFlag: (id: string, flag: string, opts?: { flagIndex?: number; challengeId?: string }) =>
     request<{
       ok: boolean;
       accepted: string;
       completed: number;
       total: number;
       points: number;
+      challenge_id?: string;
     }>(`/api/v1/labs/${id}/flag`, {
       method: "POST",
       body: JSON.stringify({
         flag,
-        ...(flagIndex !== undefined ? { flag_index: flagIndex } : {}),
+        ...(opts?.flagIndex !== undefined ? { flag_index: opts.flagIndex } : {}),
+        ...(opts?.challengeId ? { challenge_id: opts.challengeId } : {}),
       }),
     }),
   listUsers: () =>
-    request<{ users: { id: string; username: string; handle?: string; path: string }[] }>(
-      "/api/v1/users/",
-    ),
+    request<{
+      users: { id: string; username: string; handle?: string; path: string; role?: string }[];
+    }>("/api/v1/users/"),
   listGroups: () => request<{ groups: Group[] }>("/api/v1/groups/"),
   createGroup: (name: string) =>
     request<Group>("/api/v1/groups/", {
