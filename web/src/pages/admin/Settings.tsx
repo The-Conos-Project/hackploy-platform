@@ -46,9 +46,10 @@ export function AdminSettingsPage() {
     try {
       const res = await api.applyUpdate();
       toast.success(res.message || t("update_started"));
+      // Hand off to the temporary progress page (nginx → hackploy-update-ui).
       window.setTimeout(() => {
-        window.location.href = "/";
-      }, 800);
+        window.location.replace(`/?updating=${Date.now()}`);
+      }, 400);
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "update failed");
       setBusy(false);

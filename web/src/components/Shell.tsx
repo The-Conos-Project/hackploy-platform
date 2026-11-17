@@ -100,8 +100,8 @@ export function Shell({
       setVerOpen(false);
       // Progress UI takes over via nginx while platform recreates.
       window.setTimeout(() => {
-        window.location.href = "/";
-      }, 800);
+        window.location.replace(`/?updating=${Date.now()}`);
+      }, 400);
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "update failed");
       setUpdating(false);

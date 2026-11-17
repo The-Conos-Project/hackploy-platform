@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -15,6 +16,9 @@ import (
 // While the platform is down, a tiny nginx container serves an updating page with
 // percentage progress (see progress_page.go). Only the platform service is
 // recreated so nginx can keep proxying to that progress UI.
+//
+// Important: the shell script below is assembled with fmt.Sprintf. Any literal
+// "%" intended for the shell (e.g. printf formats) MUST be written as "%%".
 func Apply(ctx context.Context, composeDir, helperImage string) error {
 	if composeDir == "" {
 		composeDir = "/etc/hackploy"
@@ -27,31 +31,39 @@ func Apply(ctx context.Context, composeDir, helperImage string) error {
 		return fmt.Errorf("docker socket not available")
 	}
 
-	check := exec.CommandContext(ctx, "docker", "run", "--rm",
-		"-v", composeDir+":"+composeDir+":ro",
-		"alpine:3.21",
-		"test", "-f", composeFile,
-	)
-	if out, err := check.CombinedOutput(); err != nil {
-		return fmt.Errorf("compose project not found at %s on the Docker host (%v: %s)", composeDir, err, string(out))
+	// Prefer a host-side check when the compose dir is visible in this container
+	// (install mounts /etc/hackploy into platform). Falls back to alpine probe.
+	if _, err := os.Stat(composeFile); err != nil {
+		check := exec.CommandContext(ctx, "docker", "run", "--rm",
+			"-v", composeDir+":"+composeDir+":ro",
+			"alpine:3.21",
+			"test", "-f", composeFile,
+		)
+		if out, err := check.CombinedOutput(); err != nil {
+			return fmt.Errorf("compose project not found at %s on the Docker host (%v: %s)", composeDir, err, string(out))
+		}
 	}
 
 	_ = exec.CommandContext(ctx, "docker", "rm", "-f", "hackploy-updater").Run()
 	_ = exec.CommandContext(ctx, "docker", "rm", "-f", "hackploy-update-ui").Run()
 
 	progressDir := filepath.Join(composeDir, "update-progress")
+	// Escape only the intentional placeholders. Shell printf uses %% so Go
+	// leaves a single % for the shell.
 	script := fmt.Sprintf(`set -eu
 COMPOSE_DIR='%s'
 PROGRESS_DIR='%s'
 NGINX_CONF="$COMPOSE_DIR/nginx/default.conf"
 NGINX_BAK="$COMPOSE_DIR/nginx/default.conf.pre-update"
 PROGRESS_UI=hackploy-update-ui
+LOG="$PROGRESS_DIR/updater.log"
 
 write_progress() {
   pct="$1"; msg="$2"; detail="${3:-}"; done_flag="${4:-false}"
-  # Keep messages free of quotes — docker:cli has no python/jq guaranteed.
-  printf '{"pct":%s,"msg":"%s","detail":"%s","done":%s}\n' \
-    "$pct" "$msg" "$detail" "$done_flag" > "$PROGRESS_DIR/progress.json"
+  # Avoid shell printf %% verbs inside Go fmt — write JSON with a heredoc.
+  cat > "$PROGRESS_DIR/progress.json" <<EOF
+{"pct":$pct,"msg":"$msg","detail":"$detail","done":$done_flag}
+EOF
 }
 
 cleanup_ui() {
@@ -69,6 +81,9 @@ trap cleanup_ui EXIT
 
 echo 'Hackploy update: preparing progress UI…'
 mkdir -p "$PROGRESS_DIR"
+: > "$LOG"
+exec >>"$LOG" 2>&1
+
 cat > "$PROGRESS_DIR/index.html" <<'HTML'
 %s
 HTML
@@ -129,6 +144,18 @@ docker compose pull
 write_progress 70 "Recreating platform…" "force-recreate platform"
 # Keep nginx up so the progress page stays reachable
 docker compose up -d --force-recreate --no-deps platform
+
+# Keep host VERSION in sync with the running image when possible
+if [ -f "$COMPOSE_DIR/.env" ]; then
+  # shellcheck disable=SC1091
+  . "$COMPOSE_DIR/.env" || true
+fi
+IMG="${PLATFORM_IMAGE:-zohidjonmarufov/hackploy-platform:main}"
+VER=$(docker run --rm --entrypoint cat "$IMG" /app/VERSION 2>/dev/null || true)
+if [ -n "$VER" ]; then
+  printf '%%s\n' "$VER" > "$COMPOSE_DIR/VERSION" || true
+fi
+
 write_progress 90 "Restoring proxy…" "nginx"
 
 # Restore normal nginx config before removing UI
@@ -146,6 +173,11 @@ docker rm -f "$PROGRESS_UI" >/dev/null 2>&1 || true
 trap - EXIT
 echo 'Hackploy update: done.'
 `, composeDir, progressDir, progressIndexHTML)
+
+	// Sanity: no leftover Go missing-arg markers from accidental %% / %s bugs.
+	if strings.Contains(script, "%!") {
+		return fmt.Errorf("internal update script formatting error")
+	}
 
 	cmd := exec.CommandContext(ctx, "docker", "run", "-d", "--rm",
 		"--name", "hackploy-updater",

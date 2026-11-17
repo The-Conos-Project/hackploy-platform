@@ -22,6 +22,7 @@ RUN apk add --no-cache ca-certificates docker-cli
 WORKDIR /app
 COPY --from=go /hackploy /usr/local/bin/hackploy
 COPY --from=go /src/web/dist /app/web/dist
+COPY VERSION /app/VERSION
 ENV HACKPLOY_ADDR=:8080
 ENV HACKPLOY_DATA_DIR=/data
 ENV HACKPLOY_STATIC_DIR=/app/web/dist
