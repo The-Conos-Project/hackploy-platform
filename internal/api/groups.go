@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/The-Conos-Project/hackploy-platform/internal/auth"
 	"github.com/The-Conos-Project/hackploy-platform/internal/store"
@@ -79,6 +80,280 @@ func (s *Server) getGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, c)
+}
+
+func (s *Server) requireGroupMember(w http.ResponseWriter, r *http.Request, c *store.Class) bool {
+	sess := sessionFrom(r)
+	if sess.Role == auth.RoleAdmin {
+		return true
+	}
+	for _, mid := range c.MemberIDs {
+		if mid == sess.Subject {
+			return true
+		}
+	}
+	writeErr(w, http.StatusForbidden, "forbidden")
+	return false
+}
+
+// groupFirstBloods returns the earliest solver username per assigned challenge.
+func (s *Server) groupFirstBloods(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	c, err := s.store.GetClass(id)
+	if err != nil || c == nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if !s.requireGroupMember(w, r, c) {
+		return
+	}
+	stats := s.computeGroupChallengeStats(c, "")
+	writeJSON(w, http.StatusOK, map[string]any{"bloods": stats.Bloods})
+}
+
+// groupSetStats returns solves, solvers, bloods, and a set-scoped scoreboard.
+func (s *Server) groupSetStats(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	c, err := s.store.GetClass(id)
+	if err != nil || c == nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if !s.requireGroupMember(w, r, c) {
+		return
+	}
+	setKey := strings.TrimSpace(r.URL.Query().Get("set"))
+	stats := s.computeGroupChallengeStats(c, setKey)
+	writeJSON(w, http.StatusOK, stats)
+}
+
+func (s *Server) groupMembers(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	c, err := s.store.GetClass(id)
+	if err != nil || c == nil {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if !s.requireGroupMember(w, r, c) {
+		return
+	}
+	members := make([]map[string]any, 0, len(c.MemberIDs))
+	for _, mid := range c.MemberIDs {
+		u, err := s.store.GetUserByID(mid)
+		if err != nil || u == nil {
+			continue
+		}
+		members = append(members, map[string]any{
+			"id":       u.ID,
+			"username": u.Username,
+			"handle":   u.Handle,
+			"path":     u.ProfilePath(),
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"members": members,
+		"count":   len(members),
+	})
+}
+
+type solverRow struct {
+	Username string    `json:"username"`
+	At       time.Time `json:"at"`
+}
+
+type setBoardRow struct {
+	UserID      string `json:"user_id"`
+	Username    string `json:"username"`
+	Points      int    `json:"points"`
+	Solved      int    `json:"solved"`
+	FirstBloods int    `json:"first_bloods"`
+}
+
+type groupChallengeStats struct {
+	Set     string                  `json:"set,omitempty"`
+	Bloods  map[string]string       `json:"bloods"`
+	Solves  map[string]int          `json:"solves"`
+	Solvers map[string][]solverRow  `json:"solvers"`
+	Board   []setBoardRow           `json:"board"`
+}
+
+func (s *Server) computeGroupChallengeStats(c *store.Class, setKey string) groupChallengeStats {
+	out := groupChallengeStats{
+		Set:     setKey,
+		Bloods:  map[string]string{},
+		Solves:  map[string]int{},
+		Solvers: map[string][]solverRow{},
+		Board:   []setBoardRow{},
+	}
+	assigned := map[string]bool{}
+	for _, cid := range c.ChallengeIDs {
+		assigned[cid] = true
+	}
+	allCh, err := s.store.ListChallenges()
+	if err != nil {
+		return out
+	}
+	chByID := map[string]*store.Challenge{}
+	setChallenges := map[string]bool{}
+	flagToChallenges := map[string][]string{}
+	for i := range allCh {
+		ch := &allCh[i]
+		if !assigned[ch.ID] {
+			continue
+		}
+		chByID[ch.ID] = ch
+		tag := strings.TrimPrefix(ch.ImageTag, "hackploy-")
+		if setKey != "" && tag != setKey && ch.ImageTag != setKey {
+			continue
+		}
+		setChallenges[ch.ID] = true
+		for _, spec := range parseFlagSpecs(ch.Flags) {
+			flagToChallenges[spec.Flag] = append(flagToChallenges[spec.Flag], ch.ID)
+		}
+	}
+	if len(setChallenges) == 0 {
+		return out
+	}
+
+	type blood struct {
+		userID string
+		at     time.Time
+	}
+	first := map[string]blood{}
+	solvedUsers := map[string]map[string]time.Time{}
+
+	memberFlags := map[string]map[string]bool{}
+	for _, mid := range c.MemberIDs {
+		insts, _ := s.store.ListInstancesByUser(mid)
+		gotFlags := map[string]bool{}
+		earliest := time.Time{}
+		for _, inst := range insts {
+			var flags []string
+			_ = json.Unmarshal([]byte(inst.SubmittedFlags), &flags)
+			for _, f := range flags {
+				gotFlags[f] = true
+				for _, chID := range flagToChallenges[f] {
+					prev, ok := first[chID]
+					if !ok || inst.CreatedAt.Before(prev.at) {
+						first[chID] = blood{userID: mid, at: inst.CreatedAt}
+					}
+				}
+			}
+			if !earliest.IsZero() && !inst.CreatedAt.Before(earliest) {
+				continue
+			}
+			if len(flags) > 0 {
+				earliest = inst.CreatedAt
+			}
+		}
+		memberFlags[mid] = gotFlags
+		for chID := range setChallenges {
+			ch := chByID[chID]
+			if ch == nil {
+				continue
+			}
+			specs := parseFlagSpecs(ch.Flags)
+			if len(specs) == 0 {
+				continue
+			}
+			complete := true
+			for _, spec := range specs {
+				if !gotFlags[spec.Flag] {
+					complete = false
+					break
+				}
+			}
+			if !complete {
+				continue
+			}
+			if solvedUsers[chID] == nil {
+				solvedUsers[chID] = map[string]time.Time{}
+			}
+			at := earliest
+			if at.IsZero() {
+				at = time.Now().UTC()
+			}
+			solvedUsers[chID][mid] = at
+		}
+	}
+
+	users, _ := s.store.ListUsers()
+	userMap := map[string]store.User{}
+	for _, u := range users {
+		userMap[u.ID] = u
+	}
+
+	bloodCount := map[string]int{}
+	for chID, b := range first {
+		if !setChallenges[chID] {
+			continue
+		}
+		if u, ok := userMap[b.userID]; ok {
+			out.Bloods[chID] = u.Username
+			bloodCount[b.userID]++
+		}
+	}
+	for chID, usersMap := range solvedUsers {
+		out.Solves[chID] = len(usersMap)
+		list := make([]solverRow, 0, len(usersMap))
+		for uid, at := range usersMap {
+			u := userMap[uid]
+			if u.ID == "" {
+				continue
+			}
+			list = append(list, solverRow{Username: u.Username, At: at})
+		}
+		for i := 0; i < len(list); i++ {
+			for j := i + 1; j < len(list); j++ {
+				if list[j].At.Before(list[i].At) {
+					list[i], list[j] = list[j], list[i]
+				}
+			}
+		}
+		out.Solvers[chID] = list
+	}
+
+	rows := make([]setBoardRow, 0, len(c.MemberIDs))
+	for _, mid := range c.MemberIDs {
+		u := userMap[mid]
+		if u.ID == "" {
+			continue
+		}
+		row := setBoardRow{UserID: mid, Username: u.Username, FirstBloods: bloodCount[mid]}
+		gotFlags := memberFlags[mid]
+		if gotFlags == nil {
+			gotFlags = map[string]bool{}
+		}
+		for chID := range setChallenges {
+			ch := chByID[chID]
+			if ch == nil {
+				continue
+			}
+			specs := parseFlagSpecs(ch.Flags)
+			awarded := 0
+			for _, spec := range specs {
+				if gotFlags[spec.Flag] {
+					row.Points += spec.Points
+					awarded++
+				}
+			}
+			if len(specs) > 0 && awarded == len(specs) {
+				row.Solved++
+			}
+		}
+		rows = append(rows, row)
+	}
+	for i := 0; i < len(rows); i++ {
+		for j := i + 1; j < len(rows); j++ {
+			if rows[j].Points > rows[i].Points ||
+				(rows[j].Points == rows[i].Points && rows[j].Solved > rows[i].Solved) ||
+				(rows[j].Points == rows[i].Points && rows[j].Solved == rows[i].Solved && rows[j].Username < rows[i].Username) {
+				rows[i], rows[j] = rows[j], rows[i]
+			}
+		}
+	}
+	out.Board = rows
+	return out
 }
 
 func (s *Server) deleteGroup(w http.ResponseWriter, r *http.Request) {

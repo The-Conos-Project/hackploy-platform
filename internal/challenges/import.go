@@ -152,6 +152,7 @@ func ImportTarGz(st *store.Store, dataDir string, r io.Reader) (*ImportResult, e
 			Credentials: string(creds),
 			BuildStatus: "pending",
 			SourcePath:  setRoot,
+			Section:     c.Section,
 		}
 		if err := st.UpsertChallenge(ch); err != nil {
 			return nil, err

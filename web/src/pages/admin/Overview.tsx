@@ -188,7 +188,7 @@ export function AdminOverviewPage() {
         </div>
       </div>
 
-      <section className="card section-block" style={{ marginTop: 4 }}>
+      <section className="card section-block">
         <h2 style={{ margin: "0 0 14px" }}>{t("system_resources")}</h2>
         <div className="metrics-layout">
           <div className="gauge-row">

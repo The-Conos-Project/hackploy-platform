@@ -289,7 +289,43 @@ func (s *Server) listLabs(w http.ResponseWriter, r *http.Request) {
 	if list == nil {
 		list = []store.Instance{}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"labs": list})
+	// Enrich for machines FAB / set matching (image tag + display name).
+	chCache := map[string]*store.Challenge{}
+	out := make([]map[string]any, 0, len(list))
+	for i := range list {
+		inst := &list[i]
+		row := map[string]any{
+			"id":               inst.ID,
+			"user_id":          inst.UserID,
+			"challenge_id":     inst.ChallengeID,
+			"host_port":        inst.HostPort,
+			"connection_type":  inst.ConnectionType,
+			"status":           inst.Status,
+			"expires_at":       inst.ExpiresAt,
+			"username":         inst.Username,
+			"password":         inst.Password,
+			"submitted_flags":  inst.SubmittedFlags,
+			"attempt_counts":   inst.AttemptCounts,
+			"container_name":   inst.ContainerName,
+		}
+		ch := chCache[inst.ChallengeID]
+		if ch == nil {
+			ch, _ = s.store.GetChallenge(inst.ChallengeID)
+			if ch != nil {
+				chCache[inst.ChallengeID] = ch
+			}
+		}
+		if ch != nil {
+			row["image_tag"] = ch.ImageTag
+			row["challenge_name"] = ch.DisplayName
+			if ch.DisplayName == "" {
+				row["challenge_name"] = ch.Name
+			}
+			row["set_name"] = strings.TrimPrefix(ch.ImageTag, "hackploy-")
+		}
+		out = append(out, row)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"labs": out})
 }
 
 func (s *Server) buildLog(w http.ResponseWriter, r *http.Request) {

@@ -7,6 +7,7 @@ import { Shell } from "@/components/Shell";
 import { PageTabs } from "@/components/PageTabs";
 import { CopyButton } from "@/components/CopyButton";
 import { copyText as writeClipboard } from "@/lib/clipboard";
+import { handoffToUpdateProgress } from "@/lib/updateHandoff";
 
 export function AdminSettingsPage() {
   const { t } = useI18n();
@@ -47,10 +48,7 @@ export function AdminSettingsPage() {
     try {
       const res = await api.applyUpdate();
       toast.success(res.message || t("update_started"));
-      // Hand off to the temporary progress page (nginx → hackploy-update-ui).
-      window.setTimeout(() => {
-        window.location.replace(`/?updating=${Date.now()}`);
-      }, 400);
+      void handoffToUpdateProgress();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "update failed");
       setBusy(false);

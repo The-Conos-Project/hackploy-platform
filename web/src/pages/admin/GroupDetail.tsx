@@ -6,8 +6,8 @@ import type { Challenge, Group } from "@/lib/api";
 import { assignLabs, getGroup, listChallenges, listUsers } from "@/lib/platform";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
-import { CopyButton } from "@/components/CopyButton";
 import { AssignLabsModal } from "@/components/AssignLabsModal";
+import { copyText } from "@/lib/clipboard";
 
 export function AdminGroupDetailPage() {
   const { id = "" } = useParams();
@@ -111,8 +111,27 @@ export function AdminGroupDetailPage() {
               <h1 style={{ margin: 0 }}>{group.name}</h1>
               <div className="group-id-row">
                 <span className="small-text">{t("join_code")}</span>
-                <code className="font-mono group-id-value">{group.join_code}</code>
-                <CopyButton value={group.join_code} label={t("copy_join_code")} />
+                <code
+                  className="font-mono group-id-value code-copy"
+                  title={t("copy")}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    void copyText(group.join_code)
+                      .then(() => toast.success(t("copied")))
+                      .catch(() => toast.error(t("copy_failed")))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      void copyText(group.join_code)
+                        .then(() => toast.success(t("copied")))
+                        .catch(() => toast.error(t("copy_failed")));
+                    }
+                  }}
+                >
+                  {group.join_code}
+                </code>
                 <span className="group-id-sep" aria-hidden />
                 <span className="small-text">{t("group_id")}</span>
                 <code className="font-mono group-id-value muted">{group.id}</code>

@@ -1,6 +1,6 @@
 # Hackploy
 
-![Hackploy](https://img.shields.io/badge/Hackploy-2.1.12-5B70C4?style=for-the-badge)
+![Hackploy](https://img.shields.io/badge/Hackploy-2.1.19-5B70C4?style=for-the-badge)
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?style=for-the-badge&logo=go&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white)

@@ -1,10 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 import { api, type Group } from "@/lib/api";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
-import { toast } from "sonner";
+import { GroupTile } from "@/components/GroupTile";
 
 export function StudentGroupsPage() {
   const { t } = useI18n();
@@ -12,6 +11,7 @@ export function StudentGroupsPage() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     const data = await api.listGroups();
@@ -19,9 +19,16 @@ export function StudentGroupsPage() {
   };
 
   useEffect(() => {
-    void load().catch((cause) =>
-      toast.error(cause instanceof Error ? cause.message : "load failed"),
-    );
+    let alive = true;
+    setLoading(true);
+    void load()
+      .catch((cause) => toast.error(cause instanceof Error ? cause.message : "load failed"))
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const onJoin = async (e: FormEvent) => {
@@ -49,40 +56,38 @@ export function StudentGroupsPage() {
             {t("groups_student_body")}
           </p>
         </div>
-        <button type="button" onClick={() => setJoinOpen(true)}>
+        <button type="button" className="btn-compact" onClick={() => setJoinOpen(true)}>
           {t("join_group")}
         </button>
       </div>
 
-      {groups.length === 0 ? (
+      {loading ? (
+        <p className="muted">{t("loading")}</p>
+      ) : groups.length === 0 ? (
         <section className="empty-state card panel-fill">
           <p className="muted" style={{ margin: 0 }}>
             {t("no_groups")}
           </p>
-          <button type="button" className="secondary" onClick={() => setJoinOpen(true)}>
+          <button type="button" className="secondary btn-compact" onClick={() => setJoinOpen(true)}>
             {t("join_group")}
           </button>
         </section>
       ) : (
-        <section className="card panel-fill">
-          <ul className="list">
+        <div className="tile-panel panel-fill">
+          <div className="tile-grid">
             {groups.map((g) => (
-              <li key={g.id}>
-                <Link to={`/groups/${g.id}`} className="group-title-link">
-                  <strong>{g.name}</strong>
-                  <ChevronRight size={16} aria-hidden />
-                </Link>
-                <div className="small-text" style={{ marginTop: 4 }}>
-                  {g.challenge_ids.length} {t("assigned_labs")}
-                </div>
-              </li>
+              <GroupTile key={g.id} group={g} to={`/groups/${g.id}`} />
             ))}
-          </ul>
-        </section>
+          </div>
+        </div>
       )}
 
       {joinOpen ? (
-        <div className="modal" style={{ display: "flex" }} onClick={(e) => e.target === e.currentTarget && setJoinOpen(false)}>
+        <div
+          className="modal"
+          style={{ display: "flex" }}
+          onClick={(e) => e.target === e.currentTarget && setJoinOpen(false)}
+        >
           <div className="modal-content" style={{ width: "90%", maxWidth: 420 }}>
             <div className="row" style={{ marginBottom: 16 }}>
               <h3 style={{ margin: 0 }}>{t("join_group")}</h3>
@@ -99,7 +104,7 @@ export function StudentGroupsPage() {
                 required
                 autoFocus
               />
-              <button type="submit" disabled={busy} style={{ marginTop: 12 }}>
+              <button type="submit" className="btn-compact" disabled={busy} style={{ marginTop: 12 }}>
                 {t("join_group")}
               </button>
             </form>

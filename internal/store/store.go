@@ -111,6 +111,9 @@ func (s *Store) migrate() error {
 	if err := s.ensureColumn("challenges", "source_path", "TEXT"); err != nil {
 		return err
 	}
+	if err := s.ensureColumn("challenges", "section", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
 	if err := s.ensureColumn("challenges", "created_at", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}

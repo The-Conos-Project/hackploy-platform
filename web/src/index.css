@@ -1072,12 +1072,65 @@ button.secondary:hover {
   width: 100%;
 }
 
+/* Tabs flush to the top of a rounded body card */
+.card.body-with-tabs {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .body-with-tabs .page-tabs {
-  margin: 0 0 18px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .body-with-tabs .page-tabs::after {
-  background: linear-gradient(to right, transparent, var(--card));
+  display: none;
+}
+
+.body-with-tabs .page-tabs-scroller {
+  width: 100%;
+  max-width: 100%;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in oklab, var(--muted) 35%, transparent);
+  overflow: hidden;
+}
+
+.body-with-tabs .page-tabs-scroller .page-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 0;
+  justify-content: center;
+}
+
+/* Left tab: only top-left follows the card; other corners square */
+.body-with-tabs .page-tab.is-first {
+  border-radius: 0;
+  border-top-left-radius: var(--radius);
+}
+
+/* Right tab: only top-right follows the card */
+.body-with-tabs .page-tab.is-last {
+  border-top-right-radius: var(--radius);
+}
+
+.body-with-tabs .page-tab.is-first.is-last {
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
+}
+
+.body-with-tabs .page-tab + .page-tab {
+  border-left: 1px solid var(--border);
+}
+
+.body-with-tabs .tab-panel {
+  padding: 18px 22px 22px;
+  flex: 1;
+  min-height: 0;
 }
 
 .page-tabs::after {
@@ -1116,33 +1169,479 @@ button.secondary:hover {
   flex: 1;
 }
 
-.timer-chip {
+.dash-head {
+  align-items: flex-start;
+}
+
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.dash-stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.dash-stat-value {
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.dash-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dash-section-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.dash-set-card .dash-progress {
+  margin-top: 12px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--muted) 55%, transparent);
+  overflow: hidden;
+}
+
+.dash-progress-bar {
+  height: 100%;
+  background: color-mix(in oklab, #86efac 70%, var(--accent));
+  border-radius: 999px;
+}
+
+.group-hero {
+  margin-bottom: 14px;
+}
+
+.set-board-row.is-me {
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  border-radius: 10px;
+}
+
+.progress-title {
+  margin: 0 0 14px;
+  font-size: 1.1rem;
+}
+
+.progress-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.progress-card {
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 45%, var(--card));
+}
+
+.progress-card-label {
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 12px;
+}
+
+.progress-card-label.progress-sets {
+  color: #93c5fd;
+}
+
+.progress-card-label.progress-ctf {
+  color: #fbbf24;
+}
+
+.progress-card-label.progress-rank {
+  color: #c4b5fd;
+}
+
+.progress-card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--muted-foreground);
+}
+
+.progress-card-row strong {
+  color: var(--foreground);
+}
+
+.progress-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.progress-icons span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+@media (max-width: 900px) {
+  .progress-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.assign-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.assign-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 40%, var(--card));
+  text-decoration: none;
+  color: inherit;
+}
+
+.assign-row:hover {
+  border-color: color-mix(in oklab, var(--foreground) 18%, var(--border));
+}
+
+.assign-row-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--muted) 40%, transparent);
+  flex-shrink: 0;
+}
+
+.assign-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.assign-row-status {
+  font-size: 12px;
+  font-weight: 650;
+  color: #86efac;
+}
+
+.member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid transparent;
+}
+
+.member-row:hover {
+  border-color: var(--border);
+  background: color-mix(in oklab, var(--background) 40%, transparent);
+}
+
+.member-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--muted) 45%, transparent);
+}
+
+.set-page-head {
+  align-items: flex-start;
+}
+
+.set-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.challenge-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.diff-pill {
+  font-size: 11px;
+  font-weight: 650;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.diff-pill.diff-easy {
+  color: #86efac;
+  border-color: color-mix(in oklab, #86efac 35%, var(--border));
+}
+
+.diff-pill.diff-medium {
+  color: #fbbf24;
+  border-color: color-mix(in oklab, #fbbf24 35%, var(--border));
+}
+
+.diff-pill.diff-hard {
+  color: #fca5a5;
+  border-color: color-mix(in oklab, #fca5a5 35%, var(--border));
+}
+
+.solved-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 650;
+  color: #86efac;
+}
+
+.challenge-card-title {
+  display: block;
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.challenge-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.lab-start-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  margin: 14px 0;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 50%, var(--card));
+}
+
+.lab-start-box button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: color-mix(in oklab, var(--card) 80%, transparent);
-  color: var(--muted-foreground);
-  font-size: 13px;
-  white-space: nowrap;
 }
 
-.timer-chip.is-urgent {
-  border-color: color-mix(in oklab, #f87171 45%, var(--border));
+.set-board {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.set-board-head,
+.set-board-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1.6fr) 70px 90px 80px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 8px;
+}
+
+.set-board-head {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.set-board-row {
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  font-size: 14px;
+}
+
+.fb-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  font-size: 11px;
+  color: #fca5a5;
+}
+
+.solver-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.solver-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .dash-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .set-board-head,
+  .set-board-row {
+    grid-template-columns: 32px minmax(0, 1fr) 60px 70px;
+  }
+
+  .set-board-head span:nth-child(4),
+  .set-board-row span:nth-child(4) {
+    display: none;
+  }
+}
+
+.set-timer-live {
+  font-size: clamp(1.75rem, 3vw, 2.4rem);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.set-timer-live.is-modal {
+  font-size: 1.35rem;
+  margin: 0 0 14px;
+}
+
+.set-timer-live.is-urgent {
   color: #fecaca;
 }
 
-.set-actions {
+.set-section {
+  margin-bottom: 22px;
+}
+
+.set-section-title {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.points-yellow {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-pill.status-ready,
+.status-pill.status-solved {
+  color: #86efac;
+}
+
+.status-pill.status-idle {
+  color: var(--muted-foreground);
+}
+
+.challenge-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.first-blood-line,
+.first-blood-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.first-blood-banner {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+.connect-fields {
+  margin: 14px 0 8px;
+}
+
+.connect-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 55%, transparent);
 }
 
-.connection-banner {
-  margin-bottom: 14px;
+.connect-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.connect-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+}
+
+.connect-value {
+  font-size: 13px;
+  word-break: break-all;
+  color: var(--foreground);
+}
+
+.challenge-modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .challenge-tile {
@@ -1160,7 +1659,8 @@ button.secondary:hover {
   color: #86efac;
 }
 
-.challenge-tile.status-solved {
+.challenge-tile.status-solved,
+.challenge-tile.status-ready {
   border-color: color-mix(in oklab, #34d399 35%, var(--border));
 }
 
@@ -1176,11 +1676,108 @@ button.secondary:hover {
   background: color-mix(in oklab, var(--background) 55%, transparent);
 }
 
+.hint-block.hint-yellow {
+  border-color: color-mix(in oklab, #fbbf24 40%, var(--border));
+  background: color-mix(in oklab, #fbbf24 12%, var(--card));
+  color: #ca8a04;
+}
+
+.hint-yellow-label {
+  font-size: 12px;
+  font-weight: 650;
+  margin-bottom: 6px;
+  color: #a16207;
+}
+
+.hint-block.hint-yellow .list {
+  color: #a16207;
+}
+
 .challenge-tile .challenge-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
+}
+
+.machines-fab-wrap {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.machines-fab {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.machines-fab.has-machines {
+  border-color: color-mix(in oklab, #86efac 40%, var(--border));
+}
+
+.machines-fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #86efac;
+  color: #0b0e1c;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.machines-fab-panel {
+  width: min(320px, calc(100vw - 40px));
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
+}
+
+.machines-fab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.machines-fab-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.machines-fab-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.machines-fab-addr {
+  font-size: 12px;
+  color: var(--muted-foreground);
 }
 
 .build-log-modal {
@@ -1207,7 +1804,21 @@ button.secondary:hover {
   min-height: 280px;
 }
 
+.profile-page {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+}
+
 .profile-card {
+  max-width: 720px;
+  width: 100%;
+  margin-inline: auto;
+}
+
+.settings-card {
   max-width: 720px;
 }
 
@@ -1353,11 +1964,37 @@ button.secondary:hover {
   min-height: 34px;
   font-size: 13px;
   font-weight: 650;
+  display: inline-flex;
+  align-items: center;
 }
 
 .page-tab.active {
   background: var(--accent);
   color: var(--foreground);
+}
+
+.body-with-tabs .page-tab {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 0;
+}
+
+.body-with-tabs .page-tab.is-first {
+  border-top-left-radius: var(--radius);
+}
+
+.body-with-tabs .page-tab.is-last {
+  border-top-right-radius: var(--radius);
+}
+
+.body-with-tabs .page-tab.is-first.is-last {
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
+}
+
+.body-with-tabs .page-tab.active {
+  background: color-mix(in oklab, var(--card) 92%, var(--accent));
+  box-shadow: inset 0 -2px 0 var(--foreground);
 }
 
 .tab-panel {
@@ -1608,6 +2245,30 @@ button.secondary:hover {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+.group-tile-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.group-tile-code code {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.code-copy {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 6px;
+  transition: background 0.15s ease;
+}
+
+.code-copy:hover {
+  background: color-mix(in oklab, var(--accent) 55%, transparent);
 }
 
 .icon-actions {
@@ -1937,11 +2598,15 @@ button.secondary:hover {
 }
 
 .stats-grid {
-  margin-bottom: 8px;
+  margin-bottom: 18px;
 }
 
 .stat-card {
   margin-bottom: 0;
+}
+
+.section-block {
+  margin-top: 0;
 }
 
 .metrics-layout {

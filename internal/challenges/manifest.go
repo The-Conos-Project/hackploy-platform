@@ -25,6 +25,7 @@ type ChallengeSpec struct {
 	DisplayName string     `json:"display_name"`
 	Description string     `json:"description"`
 	Difficulty  string     `json:"difficulty"`
+	Section     string     `json:"section"`
 	Flag        string     `json:"flag"`
 	Flags       []FlagSpec `json:"flags"`
 	Points      int        `json:"points"`
@@ -42,6 +43,7 @@ type NormalizedChallenge struct {
 	Name        string
 	DisplayName string
 	Description string
+	Section     string
 	Flags       []FlagSpec
 }
 
@@ -103,6 +105,7 @@ func (m *Manifest) NormalizedChallenges() []NormalizedChallenge {
 				Name:        ch.Name,
 				DisplayName: dn,
 				Description: ch.Description,
+				Section:     ch.Section,
 				Flags:       flags,
 			})
 		}

@@ -1,23 +1,30 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CheckCircle2, ChevronRight, Circle, Copy, Timer, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, Copy, Droplets, Play, X } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Challenge, type Group, type LabInstance } from "@/lib/api";
 import { getGroup, listChallenges } from "@/lib/platform";
 import {
+  challengeDifficulty,
+  challengeHints,
   challengePoints,
   challengeSolved,
-  formatDuration,
+  connectionFields,
+  formatTimerMMSS,
+  groupBySection,
   groupBySet,
   setName,
-  parseFlagSpecs,
   parseSubmittedFlags,
+  pointsFromSubmitted,
   remainingSeconds,
-  sshSnippet,
+  solvedCount,
 } from "@/lib/challengeMeta";
 import { copyText } from "@/lib/clipboard";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
+import { PageTabs } from "@/components/PageTabs";
+
+type SetStats = Awaited<ReturnType<typeof api.groupSetStats>>;
 
 export function StudentSetDetailPage() {
   const { id = "", setId = "" } = useParams();
@@ -26,22 +33,27 @@ export function StudentSetDetailPage() {
   const [group, setGroup] = useState<Group | null>(null);
   const [labs, setLabs] = useState<Challenge[]>([]);
   const [running, setRunning] = useState<LabInstance[]>([]);
+  const [stats, setStats] = useState<SetStats | null>(null);
   const [timeoutSec, setTimeoutSec] = useState(7200);
   const [flagDraft, setFlagDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [pageTab, setPageTab] = useState("challenges");
+  const [modalTab, setModalTab] = useState("details");
   const [now, setNow] = useState(() => Date.now());
 
   const load = async () => {
-    const [g, c, l, ver] = await Promise.all([
+    const [g, c, l, ver, st] = await Promise.all([
       getGroup(id),
       listChallenges(),
       api.listLabs(),
       api.version().catch(() => null),
+      api.groupSetStats(id, setKey).catch(() => null),
     ]);
     setGroup(g);
+    setStats(st);
     if (ver?.instance_timeout_sec) setTimeoutSec(ver.instance_timeout_sec);
     const map = new Map(c.map((ch) => [ch.id, ch]));
     const assigned = g.challenge_ids.map((cid) => map.get(cid)).filter(Boolean) as Challenge[];
@@ -85,19 +97,32 @@ export function StudentSetDetailPage() {
     return (
       running.find((lab) => {
         if (lab.status !== "running") return false;
+        if (lab.image_tag && tags.has(lab.image_tag)) return true;
         const ch = labs.find((c) => c.id === lab.challenge_id);
         return ch ? tags.has(ch.image_tag) : false;
       }) ?? null
     );
   }, [running, labs]);
 
-  const submitted = useMemo(
-    () => parseSubmittedFlags(runningSet?.submitted_flags),
-    [runningSet],
-  );
+  const submitted = useMemo(() => {
+    const fromRunning = parseSubmittedFlags(runningSet?.submitted_flags);
+    if (fromRunning.length) return fromRunning;
+    // Merge any lab rows for this set's image
+    const tags = new Set(labs.map((ch) => ch.image_tag));
+    const all: string[] = [];
+    for (const lab of running) {
+      const ch = labs.find((c) => c.id === lab.challenge_id);
+      if (lab.image_tag && tags.has(lab.image_tag)) {
+        all.push(...parseSubmittedFlags(lab.submitted_flags));
+      } else if (ch && tags.has(ch.image_tag)) {
+        all.push(...parseSubmittedFlags(lab.submitted_flags));
+      }
+    }
+    return [...new Set(all)];
+  }, [runningSet, running, labs]);
 
   const leftSec = runningSet ? remainingSeconds(runningSet.expires_at) : timeoutSec;
-  void now; // drive re-render for countdown
+  void now;
 
   useEffect(() => {
     if (!runningSet?.expires_at) return;
@@ -107,6 +132,12 @@ export function StudentSetDetailPage() {
   }, [leftSec, runningSet?.id]);
 
   const active = labs.find((ch) => ch.id === activeId) ?? null;
+  const sections = useMemo(() => groupBySection(labs), [labs]);
+  const hasNamedSections = sections.some((s) => s.section);
+  const bloods = stats?.bloods ?? {};
+  const solves = stats?.solves ?? {};
+  const solvers = stats?.solvers ?? {};
+  const board = stats?.board ?? [];
 
   const startSet = async () => {
     if (labs.length === 0) return;
@@ -127,23 +158,9 @@ export function StudentSetDetailPage() {
     setBusy(true);
     try {
       await api.stopLab(runningSet.id);
-      setActiveId(null);
       await load();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "stop failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const extendSet = async () => {
-    if (!runningSet) return;
-    setBusy(true);
-    try {
-      await api.extendLab(runningSet.id);
-      await load();
-    } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "extend failed");
     } finally {
       setBusy(false);
     }
@@ -167,7 +184,7 @@ export function StudentSetDetailPage() {
     }
   };
 
-  const onCopySnippet = async (text: string) => {
+  const onCopy = async (text: string) => {
     try {
       await copyText(text);
       toast.success(t("copied"));
@@ -178,6 +195,74 @@ export function StudentSetDetailPage() {
 
   const title = setName(labs[0]?.image_tag || setKey);
   const ready = labs.every((ch) => ch.build_status === "ready") || labs.some((ch) => ch.build_status === "ready");
+  const connect = runningSet ? connectionFields(runningSet) : [];
+  const mySolved = solvedCount(labs, submitted);
+  const myPoints = pointsFromSubmitted(labs, submitted);
+  const totalPoints = labs.reduce((s, ch) => s + challengePoints(ch.flags), 0);
+
+  const pageTabs = useMemo(
+    () => [
+      { id: "challenges", label: t("tab_challenges") },
+      { id: "board", label: t("tab_board") },
+    ],
+    [t],
+  );
+
+  const modalTabs = useMemo(
+    () => [
+      { id: "details", label: t("tab_details") },
+      {
+        id: "solvers",
+        label: `${t("tab_solvers")}${active ? ` (${solves[active.id] || 0})` : ""}`,
+      },
+    ],
+    [t, active, solves],
+  );
+
+  const renderChallengeTile = (ch: Challenge) => {
+    const pts = challengePoints(ch.flags);
+    const done = challengeSolved(ch, submitted);
+    const diff = challengeDifficulty(ch);
+    const solveN = solves[ch.id] || 0;
+    return (
+      <button
+        key={ch.id}
+        type="button"
+        className={`tile-card challenge-tile tile-link status-${done ? "solved" : runningSet ? "ready" : "idle"}`}
+        onClick={() => {
+          setFlagDraft("");
+          setModalTab("details");
+          setActiveId(ch.id);
+        }}
+      >
+        <div className="challenge-card-top">
+          {diff ? <span className={`diff-pill diff-${diff.toLowerCase()}`}>{diff}</span> : <span />}
+          {done ? (
+            <span className="solved-pill">
+              <CheckCircle2 size={12} /> {t("status_solved")}
+            </span>
+          ) : null}
+        </div>
+        <strong className="challenge-card-title">{ch.display_name || ch.name}</strong>
+        <div className="challenge-card-foot">
+          <span className="points-yellow">
+            {pts} {t("points")}
+          </span>
+          <span className="small-text">
+            {solveN} {t("solves")}
+          </span>
+        </div>
+        {bloods[ch.id] ? (
+          <div className="first-blood-line">
+            <Droplets size={12} />
+            <span>
+              {t("first_blood")}: <strong>{bloods[ch.id]}</strong>
+            </span>
+          </div>
+        ) : null}
+      </button>
+    );
+  };
 
   return (
     <Shell role="student">
@@ -199,90 +284,91 @@ export function StudentSetDetailPage() {
         </section>
       ) : (
         <>
-          <div className="page-head">
+          <div className="page-head set-page-head">
             <div>
               <h1 style={{ margin: 0 }}>{title}</h1>
               <p className="muted" style={{ margin: "6px 0 0" }}>
-                {labs[0]?.description || t("pick_challenge")}
+                {labs.length} {t("challenges_count")} · {mySolved} {t("solved")} · {myPoints} / {totalPoints}{" "}
+                {t("points")}
               </p>
             </div>
-            <div className="set-actions">
-              <div className={`timer-chip${runningSet && leftSec <= 300 ? " is-urgent" : ""}`}>
-                <Timer size={14} />
-                <span className="font-mono">
-                  {t("lab_timer")}: {formatDuration(runningSet ? leftSec : timeoutSec)}
-                </span>
+            {runningSet ? (
+              <div className={`set-timer-live font-mono${leftSec <= 300 ? " is-urgent" : ""}`}>
+                {formatTimerMMSS(leftSec)}
               </div>
-              {!runningSet ? (
-                <button type="button" className="btn-compact" disabled={busy || !ready} onClick={() => void startSet()}>
-                  {t("start_lab")}
-                </button>
-              ) : (
-                <>
-                  <button type="button" className="btn-compact secondary" disabled={busy} onClick={() => void extendSet()}>
-                    {t("extend_lab")}
-                  </button>
-                  <button type="button" className="btn-compact secondary" disabled={busy} onClick={() => void stopSet()}>
-                    {t("stop_lab")}
-                  </button>
-                </>
-              )}
-            </div>
+            ) : null}
           </div>
 
-          {runningSet ? (
-            <section className="card connection-banner">
-              <div className="row" style={{ marginBottom: 8 }}>
-                <strong>{t("connection")}</strong>
-                <button
-                  type="button"
-                  className="icon-action"
-                  title={t("copy")}
-                  onClick={() => void onCopySnippet(sshSnippet(runningSet))}
-                >
-                  <Copy size={15} />
-                </button>
-              </div>
-              <pre className="command font-mono">{sshSnippet(runningSet)}</pre>
-            </section>
-          ) : (
-            <p className="muted">{t("start_set_hint")}</p>
-          )}
+          <section className="card panel-fill body-with-tabs">
+            <PageTabs tabs={pageTabs} active={pageTab} onChange={setPageTab} />
 
-          <div className="tile-panel panel-fill">
-            <div className="tile-grid">
-              {labs.map((ch) => {
-                const pts = challengePoints(ch.flags);
-                const done = challengeSolved(ch, submitted);
-                const status = done ? "solved" : runningSet ? "ready" : "idle";
-                return (
-                  <button
-                    key={ch.id}
-                    type="button"
-                    className={`tile-card challenge-tile tile-link status-${status}`}
-                    onClick={() => {
-                      setFlagDraft("");
-                      setActiveId(ch.id);
-                    }}
-                  >
-                    <div className="row" style={{ marginBottom: 6 }}>
-                      <strong>{ch.display_name || ch.name}</strong>
-                      {done ? <CheckCircle2 size={16} className="status-icon ok" /> : <Circle size={16} className="status-icon" />}
+            {pageTab === "challenges" ? (
+              <div className="tab-panel">
+                {!runningSet ? <p className="muted">{t("start_set_hint")}</p> : null}
+                {hasNamedSections
+                  ? sections.map(({ section, challenges }) => (
+                      <div key={section || "_"} className="set-section">
+                        <div className="set-section-head">
+                          <h2 className="set-section-title">{section || t("challenges_title")}</h2>
+                          <span className="small-text">
+                            {challenges.length} {t("challenges_count")}
+                          </span>
+                        </div>
+                        <div className="tile-grid">{challenges.map(renderChallengeTile)}</div>
+                      </div>
+                    ))
+                  : (
+                    <div className="set-section">
+                      <div className="set-section-head">
+                        <h2 className="set-section-title">{t("challenges_title")}</h2>
+                        <span className="small-text">
+                          {labs.length} {t("challenges_count")}
+                        </span>
+                      </div>
+                      <div className="tile-grid">{labs.map(renderChallengeTile)}</div>
                     </div>
-                    <div className="small-text">{ch.description}</div>
-                    <div className="tile-meta" style={{ marginTop: 10 }}>
-                      <span>
-                        {pts} {t("points")}
-                      </span>
-                      <span className="small-text">
-                        {done ? t("status_solved") : runningSet ? t("status_ready") : t("status_locked")}
-                      </span>
+                  )}
+              </div>
+            ) : (
+              <div className="tab-panel">
+                <div className="row" style={{ marginBottom: 12 }}>
+                  <strong>{t("tab_board")}</strong>
+                  <span className="small-text">
+                    {board.length} {t("players")}
+                  </span>
+                </div>
+                {board.length === 0 ? (
+                  <p className="muted">{t("no_scores")}</p>
+                ) : (
+                  <div className="set-board">
+                    <div className="set-board-head">
+                      <span>#</span>
+                      <span>{t("username")}</span>
+                      <span>{t("solved")}</span>
+                      <span>{t("first_bloods")}</span>
+                      <span>{t("points")}</span>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                    {board.map((row, i) => (
+                      <div key={row.user_id} className="set-board-row">
+                        <span className="font-mono">{i + 1}</span>
+                        <span>
+                          <strong>{row.username}</strong>
+                          {bloods && Object.values(bloods).includes(row.username) ? (
+                            <span className="fb-tag">
+                              <Droplets size={10} /> {t("first_blood")}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="font-mono">{row.solved}</span>
+                        <span className="font-mono">{row.first_bloods}</span>
+                        <span className="font-mono points-yellow">{row.points}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
         </>
       )}
 
@@ -295,75 +381,140 @@ export function StudentSetDetailPage() {
           }}
         >
           <div className="modal-content challenge-modal">
-            <div className="row" style={{ marginBottom: 12 }}>
-              <div>
-                <h3 style={{ margin: 0 }}>{active.display_name || active.name}</h3>
-                <div className="small-text">
+            <div className="row" style={{ marginBottom: 8 }}>
+              <div className="challenge-meta-row" style={{ marginTop: 0 }}>
+                {challengeDifficulty(active) ? (
+                  <span className={`diff-pill diff-${challengeDifficulty(active).toLowerCase()}`}>
+                    {challengeDifficulty(active)}
+                  </span>
+                ) : null}
+                <span className="points-yellow">
                   {challengePoints(active.flags)} {t("points")}
-                  {" · "}
-                  {challengeSolved(active, submitted) ? t("status_solved") : runningSet ? t("status_ready") : t("status_locked")}
-                </div>
+                </span>
               </div>
               <button type="button" className="icon-action" onClick={() => setActiveId(null)}>
                 <X size={16} />
               </button>
             </div>
 
-            <p style={{ marginTop: 0 }}>{active.description}</p>
+            <h3 style={{ margin: "0 0 10px" }}>{active.display_name || active.name}</h3>
 
-            {parseFlagSpecs(active.flags).some((f) => (f.hints?.length ?? 0) > 0) ? (
-              <div className="hint-block">
-                <div className="small-text" style={{ marginBottom: 6 }}>
-                  {t("hints")}
-                </div>
-                <ul className="list">
-                  {parseFlagSpecs(active.flags).flatMap((f) => f.hints || []).map((h, i) => (
-                    <li key={i}>{h}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            <PageTabs tabs={modalTabs} active={modalTab} onChange={setModalTab} />
 
-            {runningSet ? (
-              <>
-                <div className="row" style={{ marginBottom: 6 }}>
-                  <span className="small-text">{t("connection")}</span>
-                  <button
-                    type="button"
-                    className="icon-action"
-                    title={t("copy")}
-                    onClick={() => void onCopySnippet(sshSnippet(runningSet))}
-                  >
-                    <Copy size={14} />
-                  </button>
-                </div>
-                <pre className="command font-mono">{sshSnippet(runningSet)}</pre>
-
-                {challengeSolved(active, submitted) ? (
-                  <p className="muted" style={{ marginTop: 14 }}>
-                    {t("challenge_complete")}
-                  </p>
+            {modalTab === "solvers" ? (
+              <div className="tab-panel" style={{ paddingTop: 12 }}>
+                {(solvers[active.id] || []).length === 0 ? (
+                  <p className="muted">{t("no_solvers")}</p>
                 ) : (
-                  <form onSubmit={(e) => void submitFlag(e)} style={{ marginTop: 14 }}>
-                    <label className="small-text">{t("submit_flag")}</label>
-                    <div className="inline-field">
-                      <input
-                        className="font-mono"
-                        value={flagDraft}
-                        onChange={(e) => setFlagDraft(e.target.value)}
-                        placeholder={t("flag_placeholder")}
-                        required
-                        autoFocus
-                      />
-                      <button type="submit" className="btn-compact" disabled={busy}>
-                        {t("submit_flag")}
-                      </button>
-                    </div>
-                  </form>
+                  <ul className="solver-list">
+                    {(solvers[active.id] || []).map((s) => (
+                      <li key={s.username + s.at}>
+                        <strong>{s.username}</strong>
+                        <span className="small-text">{new Date(s.at).toLocaleString()}</span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-              </>
+              </div>
             ) : (
-              <p className="muted">{t("start_set_hint")}</p>
+              <div className="tab-panel" style={{ paddingTop: 12 }}>
+                {bloods[active.id] ? (
+                  <div className="first-blood-banner">
+                    <Droplets size={14} />
+                    <span>
+                      {t("first_blood")}: <strong>{bloods[active.id]}</strong>
+                    </span>
+                  </div>
+                ) : null}
+
+                {runningSet ? (
+                  <div className={`set-timer-live is-modal font-mono${leftSec <= 300 ? " is-urgent" : ""}`}>
+                    {formatTimerMMSS(leftSec)}
+                  </div>
+                ) : null}
+
+                <p style={{ marginTop: 0 }}>{active.description}</p>
+
+                {challengeHints(active.flags).length > 0 ? (
+                  <div className="hint-block hint-yellow">
+                    <div className="hint-yellow-label">{t("hints")}</div>
+                    <ul className="list">
+                      {challengeHints(active.flags).map((h, i) => (
+                        <li key={i}>{h}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                <div className="lab-start-box">
+                  <div>
+                    <strong>{t("challenge_lab")}</strong>
+                    <div className="small-text">
+                      {(solves[active.id] || 0)} {t("solves")}
+                    </div>
+                  </div>
+                  {!runningSet ? (
+                    <button type="button" className="btn-compact" disabled={busy || !ready} onClick={() => void startSet()}>
+                      <Play size={14} /> {t("start_lab")}
+                    </button>
+                  ) : (
+                    <button type="button" className="btn-compact secondary" disabled={busy} onClick={() => void stopSet()}>
+                      {t("stop_lab")}
+                    </button>
+                  )}
+                </div>
+
+                {runningSet && connect.length > 0 ? (
+                  <div className="connect-fields">
+                    <div className="small-text" style={{ marginBottom: 8 }}>
+                      {t("connection")}
+                    </div>
+                    {connect.map((field) => (
+                      <div key={field.id} className="connect-row">
+                        <div className="connect-row-main">
+                          <span className="connect-label">
+                            {field.id === "password" ? t("password") : field.label}
+                          </span>
+                          <code className="font-mono connect-value">{field.value}</code>
+                        </div>
+                        <button
+                          type="button"
+                          className="icon-action"
+                          title={t("copy")}
+                          onClick={() => void onCopy(field.copyValue ?? field.value)}
+                        >
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {runningSet ? (
+                  challengeSolved(active, submitted) ? (
+                    <p className="muted" style={{ marginTop: 14 }}>
+                      {t("challenge_complete")}
+                    </p>
+                  ) : (
+                    <form onSubmit={(e) => void submitFlag(e)} style={{ marginTop: 14 }}>
+                      <label className="small-text">{t("submit_flag")}</label>
+                      <div className="inline-field">
+                        <input
+                          className="font-mono"
+                          value={flagDraft}
+                          onChange={(e) => setFlagDraft(e.target.value)}
+                          placeholder={t("flag_placeholder")}
+                          required
+                          autoFocus
+                        />
+                        <button type="submit" className="btn-compact" disabled={busy}>
+                          {t("submit_flag")}
+                        </button>
+                      </div>
+                    </form>
+                  )
+                ) : null}
+              </div>
             )}
           </div>
         </div>

@@ -41,6 +41,7 @@ export type Challenge = {
   credentials: string;
   build_status: string;
   source_path?: string;
+  section?: string;
 };
 
 export type ImportResult = {
@@ -219,6 +220,29 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
   getGroup: (id: string) => request<Group>(`/api/v1/groups/${id}`),
+  groupBloods: (id: string) =>
+    request<{ bloods: Record<string, string> }>(`/api/v1/groups/${id}/bloods`),
+  groupSetStats: (id: string, set?: string) =>
+    request<{
+      set?: string;
+      bloods: Record<string, string>;
+      solves: Record<string, number>;
+      solvers: Record<string, { username: string; at: string }[]>;
+      board: {
+        user_id: string;
+        username: string;
+        points: number;
+        solved: number;
+        first_bloods: number;
+      }[];
+    }>(
+      `/api/v1/groups/${id}/set-stats${set ? `?set=${encodeURIComponent(set)}` : ""}`,
+    ),
+  groupMembers: (id: string) =>
+    request<{
+      members: { id: string; username: string; handle?: string; path: string }[];
+      count: number;
+    }>(`/api/v1/groups/${id}/members`),
   deleteGroup: (id: string) =>
     request<{ ok: string }>(`/api/v1/groups/${id}`, { method: "DELETE" }),
   joinGroup: (code: string) =>
@@ -260,6 +284,9 @@ export type LabInstance = {
   password?: string;
   submitted_flags?: string;
   attempt_counts?: string;
+  image_tag?: string;
+  challenge_name?: string;
+  set_name?: string;
 };
 
 export type UpdateStatus = {

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { RequireAuth } from "@/components/RequireAuth";
 import { LandingPage } from "@/pages/Landing";
@@ -17,9 +18,12 @@ import { StudentDashboardPage } from "@/pages/student/Dashboard";
 import { StudentGroupsPage } from "@/pages/student/Groups";
 import { StudentGroupDetailPage } from "@/pages/student/GroupDetail";
 import { StudentSetDetailPage } from "@/pages/student/SetDetail";
-import { ChangePasswordPage } from "@/pages/student/ChangePassword";
+import { StudentSettingsPage } from "@/pages/student/Settings";
+import { watchUpdateHandoff } from "@/lib/updateHandoff";
 
 export default function App() {
+  useEffect(() => watchUpdateHandoff(), []);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -139,13 +143,14 @@ export default function App() {
           }
         />
         <Route
-          path="/change-password"
+          path="/settings"
           element={
             <RequireAuth role="student">
-              <ChangePasswordPage />
+              <StudentSettingsPage />
             </RequireAuth>
           }
         />
+        <Route path="/change-password" element={<Navigate to="/settings?tab=password" replace />} />
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

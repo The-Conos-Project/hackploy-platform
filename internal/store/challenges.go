@@ -16,6 +16,7 @@ type Challenge struct {
 	Credentials  string    `json:"credentials"`  // JSON
 	BuildStatus  string    `json:"build_status"`
 	SourcePath   string    `json:"source_path,omitempty"`
+	Section      string    `json:"section,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -36,8 +37,8 @@ func (s *Store) UpsertChallenge(c *Challenge) error {
 		c.BuildStatus = "pending"
 	}
 	_, err := s.db.Exec(`
-INSERT INTO challenges (id, name, display_name, description, image_tag, flags, credentials, build_status, source_path, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO challenges (id, name, display_name, description, image_tag, flags, credentials, build_status, source_path, section, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   name = excluded.name,
   display_name = excluded.display_name,
@@ -47,29 +48,30 @@ ON CONFLICT(id) DO UPDATE SET
   credentials = excluded.credentials,
   build_status = excluded.build_status,
   source_path = excluded.source_path,
+  section = excluded.section,
   updated_at = excluded.updated_at
-`, c.ID, c.Name, c.DisplayName, c.Description, c.ImageTag, c.Flags, c.Credentials, c.BuildStatus, c.SourcePath,
+`, c.ID, c.Name, c.DisplayName, c.Description, c.ImageTag, c.Flags, c.Credentials, c.BuildStatus, c.SourcePath, c.Section,
 		c.CreatedAt.Format(time.RFC3339Nano), c.UpdatedAt.Format(time.RFC3339Nano))
 	return err
 }
 
 func (s *Store) GetChallenge(id string) (*Challenge, error) {
 	row := s.db.QueryRow(`
-SELECT id, name, display_name, description, image_tag, flags, credentials, build_status, COALESCE(source_path,''), created_at, updated_at
+SELECT id, name, display_name, description, image_tag, flags, credentials, build_status, COALESCE(source_path,''), COALESCE(section,''), created_at, updated_at
 FROM challenges WHERE id = ?`, id)
 	return scanChallenge(row)
 }
 
 func (s *Store) GetChallengeByName(name string) (*Challenge, error) {
 	row := s.db.QueryRow(`
-SELECT id, name, display_name, description, image_tag, flags, credentials, build_status, COALESCE(source_path,''), created_at, updated_at
+SELECT id, name, display_name, description, image_tag, flags, credentials, build_status, COALESCE(source_path,''), COALESCE(section,''), created_at, updated_at
 FROM challenges WHERE name = ?`, name)
 	return scanChallenge(row)
 }
 
 func (s *Store) ListChallenges() ([]Challenge, error) {
 	rows, err := s.db.Query(`
-SELECT id, name, display_name, description, image_tag, flags, credentials, build_status, COALESCE(source_path,''), created_at, updated_at
+SELECT id, name, display_name, description, image_tag, flags, credentials, build_status, COALESCE(source_path,''), COALESCE(section,''), created_at, updated_at
 FROM challenges ORDER BY name`)
 	if err != nil {
 		return nil, err
@@ -101,7 +103,7 @@ func (s *Store) DeleteChallenge(id string) error {
 func scanChallenge(row *sql.Row) (*Challenge, error) {
 	var c Challenge
 	var created, updated string
-	err := row.Scan(&c.ID, &c.Name, &c.DisplayName, &c.Description, &c.ImageTag, &c.Flags, &c.Credentials, &c.BuildStatus, &c.SourcePath, &created, &updated)
+	err := row.Scan(&c.ID, &c.Name, &c.DisplayName, &c.Description, &c.ImageTag, &c.Flags, &c.Credentials, &c.BuildStatus, &c.SourcePath, &c.Section, &created, &updated)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -116,7 +118,7 @@ func scanChallenge(row *sql.Row) (*Challenge, error) {
 func scanChallengeRows(rows *sql.Rows) (*Challenge, error) {
 	var c Challenge
 	var created, updated string
-	if err := rows.Scan(&c.ID, &c.Name, &c.DisplayName, &c.Description, &c.ImageTag, &c.Flags, &c.Credentials, &c.BuildStatus, &c.SourcePath, &created, &updated); err != nil {
+	if err := rows.Scan(&c.ID, &c.Name, &c.DisplayName, &c.Description, &c.ImageTag, &c.Flags, &c.Credentials, &c.BuildStatus, &c.SourcePath, &c.Section, &created, &updated); err != nil {
 		return nil, err
 	}
 	c.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)

@@ -92,6 +92,12 @@ write_progress 5 "Preparing update…" "progress UI"
 cd "$COMPOSE_DIR"
 test -f docker-compose.yml
 
+# Copy Google Sans fonts from the still-running platform so the progress page matches the app.
+PLATFORM_ID=$(docker compose ps -q platform 2>/dev/null || true)
+if [ -n "$PLATFORM_ID" ]; then
+  docker cp "$PLATFORM_ID:/app/web/dist/fonts" "$PROGRESS_DIR/fonts" >/dev/null 2>&1 || true
+fi
+
 # Heal leftover 1.x nginx proxies
 if [ -f "$NGINX_CONF" ] && grep -q 'proxy_pass http://platform:8000' "$NGINX_CONF"; then
   sed -i 's|proxy_pass http://platform:8000|proxy_pass http://platform:8080|g' "$NGINX_CONF"

@@ -14,18 +14,28 @@ export function PageTabs({
   return (
     <div className="page-tabs" role="tablist" aria-label={label}>
       <div className="page-tabs-scroller">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={active === tab.id}
-            className={active === tab.id ? "page-tab active" : "page-tab"}
-            onClick={() => onChange(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {tabs.map((tab, i) => {
+          const edge =
+            tabs.length === 1
+              ? " is-first is-last"
+              : i === 0
+                ? " is-first"
+                : i === tabs.length - 1
+                  ? " is-last"
+                  : "";
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active === tab.id}
+              className={`page-tab${active === tab.id ? " active" : ""}${edge}`}
+              onClick={() => onChange(tab.id)}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,12 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
-import { Plus, Trash2, Users, Workflow } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, type Group } from "@/lib/api";
 import { listGroups } from "@/lib/platform";
 import { useI18n } from "@/i18n";
 import { Shell } from "@/components/Shell";
-import { CopyButton } from "@/components/CopyButton";
+import { GroupTile } from "@/components/GroupTile";
 
 export function AdminGroupsPage() {
   const { t } = useI18n();
@@ -80,9 +79,11 @@ export function AdminGroupsPage() {
         <div className="tile-panel panel-fill">
           <div className="tile-grid">
             {groups.map((g) => (
-              <Link key={g.id} to={`/admin/groups/${g.id}`} className="tile-card tile-link">
-                <div className="row" style={{ marginBottom: 8 }}>
-                  <strong>{g.name}</strong>
+              <GroupTile
+                key={g.id}
+                group={g}
+                to={`/admin/groups/${g.id}`}
+                action={
                   <button
                     type="button"
                     className="icon-action"
@@ -107,39 +108,19 @@ export function AdminGroupsPage() {
                   >
                     <Trash2 size={15} />
                   </button>
-                </div>
-                <div className="tile-meta">
-                  <span>
-                    <Users size={14} /> {g.member_ids.length} {t("members")}
-                  </span>
-                  <span>
-                    <Workflow size={14} /> {g.challenge_ids.length} {t("assigned_labs")}
-                  </span>
-                </div>
-                <div
-                  className="row"
-                  style={{ marginTop: 10, justifyContent: "flex-start", gap: 8 }}
-                  onClick={(e) => e.preventDefault()}
-                >
-                  <span className="small-text">{t("join_code")}</span>
-                  <code className="font-mono small-text">{g.join_code}</code>
-                  <span
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                  >
-                    <CopyButton value={g.join_code} label={t("copy_join_code")} />
-                  </span>
-                </div>
-              </Link>
+                }
+              />
             ))}
           </div>
         </div>
       )}
 
       {createOpen ? (
-        <div className="modal" style={{ display: "flex" }} onClick={(e) => e.target === e.currentTarget && setCreateOpen(false)}>
+        <div
+          className="modal"
+          style={{ display: "flex" }}
+          onClick={(e) => e.target === e.currentTarget && setCreateOpen(false)}
+        >
           <div className="modal-content" style={{ width: "90%", maxWidth: 420 }}>
             <div className="row" style={{ marginBottom: 16 }}>
               <h3 style={{ margin: 0 }}>{t("create_group")}</h3>

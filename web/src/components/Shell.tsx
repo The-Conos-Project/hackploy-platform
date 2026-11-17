@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
-  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -19,8 +18,10 @@ import { api, type Group, type UpdateStatus } from "@/lib/api";
 import { getUpdateStatus, listGroups } from "@/lib/platform";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/i18n";
+import { handoffToUpdateProgress } from "@/lib/updateHandoff";
 import { toast } from "sonner";
 import { LangSwitch } from "./LangSwitch";
+import { MachinesFab } from "./MachinesFab";
 
 type NavItem = { key: string; to: string; label: string; icon: ReactNode };
 
@@ -98,10 +99,8 @@ export function Shell({
       const res = await api.applyUpdate();
       toast.success(res.message || t("update_started"));
       setVerOpen(false);
-      // Progress UI takes over via nginx while platform recreates.
-      window.setTimeout(() => {
-        window.location.replace(`/?updating=${Date.now()}`);
-      }, 400);
+      // Wait until nginx serves the progress UI, then show admin progress.
+      void handoffToUpdateProgress();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "update failed");
       setUpdating(false);
@@ -127,7 +126,7 @@ export function Shell({
     { key: "home", to: "/dashboard", label: t("nav_dashboard"), icon: <LayoutDashboard /> },
     { key: "leaderboard", to: "/leaderboard", label: t("nav_leaderboard"), icon: <Trophy /> },
     { key: "profile", to: profileTo, label: userLabel, icon: <UserRound /> },
-    { key: "password", to: "/change-password", label: t("nav_password"), icon: <KeyRound /> },
+    { key: "settings", to: "/settings", label: t("nav_settings"), icon: <Settings /> },
   ];
 
   const links = role === "admin" ? adminNav : studentNav;
@@ -340,6 +339,7 @@ export function Shell({
       <main className="main">
         <div className="main-inner">{children}</div>
       </main>
+      {role === "student" ? <MachinesFab /> : null}
     </div>
   );
 }
