@@ -15,7 +15,6 @@ export function AdminChallengesPage() {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [queryDraft, setQueryDraft] = useState("");
   const [query, setQuery] = useState("");
   const [logSet, setLogSet] = useState<string | null>(null);
   const [logChallengeId, setLogChallengeId] = useState<string | null>(null);
@@ -45,16 +44,15 @@ export function AdminChallengesPage() {
     logEndRef.current?.scrollTo({ top: logEndRef.current.scrollHeight });
   }, [logText]);
 
-  const liveQuery = queryDraft;
   const sets = useMemo(() => {
-    const q = liveQuery.trim().toLowerCase();
+    const q = query.trim().toLowerCase();
     const all = groupBySet(challenges);
     if (!q) return all;
     return all.filter(([name, labs]) => {
       const hay = `${name} ${labs.map((c) => `${c.display_name} ${c.name} ${c.description}`).join(" ")}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [challenges, liveQuery]);
+  }, [challenges, query]);
 
   const stopPoll = () => {
     if (pollRef.current) {
@@ -183,17 +181,11 @@ export function AdminChallengesPage() {
 
       <div className="page-toolbar assign-search">
         <input
-          value={queryDraft}
-          onChange={(e) => {
-            setQueryDraft(e.target.value);
-            setQuery(e.target.value);
-          }}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           placeholder={t("search_labs")}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") setQuery(queryDraft);
-          }}
         />
-        <button type="button" className="btn-compact secondary" onClick={() => setQuery(queryDraft)}>
+        <button type="button" className="btn-compact secondary" onClick={() => setQuery(query.trim())}>
           <Search size={14} /> {t("search")}
         </button>
       </div>
